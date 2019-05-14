@@ -1,5 +1,6 @@
 using Microsoft.Win32;
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
@@ -15,14 +16,21 @@ namespace VSRepoGUI
     public partial class MainWindow : Window, INotifyPropertyChanged
     {
         public string vspackages_file; // = @"..\vspackages.json";
-        public Package[] Plugins { get; set; }
+        //public Package[] Plugins { get; set; }
         public Package[] PluginsFull { get; set; }
+        public Package[] PluginsInstalled { get; set; }
+        public Package[] PluginsNotInstalled { get; set; }
+        public Package[] PluginsUpdateAvailable { get; set; }
+        public Package[] PluginsUnknown { get; set; }
+
+        //public VsPlugins Plugins = new VsPlugins();
         public Paths paths;
         public VsApi vsrepo = new VsApi();
         public bool IsNotWorking { get; set; } = true;
         public event PropertyChangedEventHandler PropertyChanged;
         public bool HideInstalled { get; set; }
         public string consolestd { get; set; }
+        public List<string> consolestdL = new List<string>();
 
         RegistryKey localKey;
 
@@ -35,6 +43,28 @@ namespace VSRepoGUI
         {
             get { return _win64; }
             set { _win64 = value; vsrepo.SetArch(_win64); }
+        }
+
+        public class VsPlugins : INotifyPropertyChanged
+        {
+            public event PropertyChangedEventHandler PropertyChanged;
+
+            public Package[] UpdateAvailable { get; set; }
+            public Package[] Installed { get; set; }
+            public Package[] Unknown { get; set; }
+
+            private Package[] _all;
+            public Package[] All
+            {
+                get { return _all; }
+                set
+                {
+                    _all = value;
+                    UpdateAvailable = Array.FindAll(_all, c => c.Status == VsApi.PluginStatus.UpdateAvailable);
+                    Installed = Array.FindAll(_all, c => c.Status == VsApi.PluginStatus.Installed);
+                    Unknown = Array.FindAll(_all, c => c.Status == VsApi.PluginStatus.InstalledUnknown);
+                }
+            }
         }
 
         public MainWindow()
@@ -89,7 +119,7 @@ namespace VSRepoGUI
                 MessageBox.Show(@"It seems that Python is not installed or not set in your PATH variable. Add Python to PATH or call like this 'VSRepoGui.exe path\to\python.exe'");
                 System.Environment.Exit(1);
             }
-            if(settings == null)
+            if(settings is null)
             {
                 string reg_value = null;
                 try
@@ -125,12 +155,12 @@ namespace VSRepoGUI
                     System.Environment.Exit(1);
                 }
                 AppIsWorking(true);
-                Win64 = Environment.Is64BitOperatingSystem;
-                paths = vsrepo.GetPaths(Win64);
+                paths = vsrepo.GetPaths(Environment.Is64BitOperatingSystem);
                 vspackages_file = paths.Definitions;
+                Win64 = Environment.Is64BitOperatingSystem;
                 Console.WriteLine("vspackages_file: " + vsrepo_file);
             }
-            else // Portable mode
+            else // Portable mode, valid vsrepogui.json found
             {
                 LabelPortable.Visibility = Visibility.Visible;
                 vsrepo.SetPortableMode(true);
@@ -232,8 +262,11 @@ namespace VSRepoGUI
         {
             Console.WriteLine("A property has changed: " + e.PropertyName);
             var s = sender as VsApi;
-            //Console.WriteLine("||| " + s.consolestd);
+            Console.WriteLine("||| " + s.consolestd);
             consolestd += s.consolestd + "\n";
+            //consolestd.Add(s.consolestd);
+            //ConsoleBox.Text = String.Join(Environment.NewLine, consolestd);
+            //ConsoleBox.Text =  s.consolestd + "\n";
         }
 
         private Package[] LoadLocalVspackage()
@@ -272,7 +305,10 @@ namespace VSRepoGUI
                 {
                     plugins = Array.FindAll(plugins, c => c.Status != VsApi.PluginStatus.Installed);
                 }
-                Plugins = plugins;
+                PluginsInstalled = Array.FindAll(plugins, c => c.Status == VsApi.PluginStatus.Installed);
+                PluginsNotInstalled = Array.FindAll(plugins, c => c.Status == VsApi.PluginStatus.NotInstalled);
+                PluginsUpdateAvailable = Array.FindAll(plugins, c => c.Status == VsApi.PluginStatus.UpdateAvailable);
+                PluginsUnknown = Array.FindAll(plugins, c => c.Status == VsApi.PluginStatus.InstalledUnknown);
                 dataGrid.Columns[0].SortDirection = ListSortDirection.Ascending;
             }
             
@@ -313,6 +349,7 @@ namespace VSRepoGUI
             var plugin_status = ((Package)button.DataContext).Status;
             string plugin = ((Package)button.DataContext).Namespace ?? ((Package)button.DataContext).Modulename;
             consolestd = "";
+            consolestdL.Clear();
             switch (plugin_status)
             {
                 case VsApi.PluginStatus.Installed:
@@ -336,6 +373,10 @@ namespace VSRepoGUI
                     await vsrepo.Upgrade(plugin);
                     break;
             }
+          
+            ConsoleBox.Focus();
+            ConsoleBox.CaretIndex = ConsoleBox.Text.Length;
+            ConsoleBox.ScrollToEnd();
 
             await ReloadPluginsAsync();
             AppIsWorking(false);
@@ -362,7 +403,7 @@ namespace VSRepoGUI
             textbox.Clear();
         }
 
-        private async void CheckBox_Checked_1(object sender, RoutedEventArgs e)
+        private async void CheckBox_Win64_Checked(object sender, RoutedEventArgs e)
         {
             AppIsWorking(true);
             Win64 = true;
@@ -371,7 +412,7 @@ namespace VSRepoGUI
             AppIsWorking(false);
         }
 
-        private async void CheckBox_Unchecked_1(object sender, RoutedEventArgs e)
+        private async void CheckBox_Win64_Unchecked(object sender, RoutedEventArgs e)
         {
             AppIsWorking(true);
             Win64 = false;

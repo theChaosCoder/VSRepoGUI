@@ -1,14 +1,12 @@
 ﻿using System;
-using System.Collections.Generic;
-
-using System.Globalization;
+using System.Diagnostics;
 using System.IO;
+using System.Windows;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Converters;
 
 namespace VSRepoGUI
 {
-     public partial class Settings
+    public partial class Settings
     {
         [JsonProperty("Bin")]
         public string Bin { get; set; }
@@ -25,11 +23,22 @@ namespace VSRepoGUI
         {
             if (File.Exists(settingsfile))
             {
-                //string joutput = JsonConvert.SerializeObject(a);
-                //System.IO.File.WriteAllText("vsrepogui.json", joutput);
                 var jsonString = File.ReadAllText(settingsfile);
-                return JsonConvert.DeserializeObject<Settings>(jsonString);
+                try
+                {
+                    var settingsFile = JsonConvert.DeserializeObject<Settings>(jsonString);
 
+                    settingsFile.Bin = MakeFullPath(settingsFile.Bin);
+                    settingsFile.Win32.Binaries = MakeFullPath(settingsFile.Win32.Binaries);
+                    settingsFile.Win32.Scripts = MakeFullPath(settingsFile.Win32.Scripts);
+                    settingsFile.Win64.Binaries = MakeFullPath(settingsFile.Win64.Binaries);
+                    settingsFile.Win64.Scripts = MakeFullPath(settingsFile.Win64.Scripts);
+                    return settingsFile;
+                } catch(Exception e)
+                {
+                    MessageBox.Show("vsrepogui.json is invalid");
+                    return null;
+                }
             }
             return null;
         }
@@ -37,6 +46,16 @@ namespace VSRepoGUI
         public void SaveLocalFile()
         {
             throw new NotImplementedException();
+            //string joutput = JsonConvert.SerializeObject(a);
+            //System.IO.File.WriteAllText("vsrepogui.json", joutput);
+        }
+
+        public string MakeFullPath(string path)
+        {
+            if (!Path.IsPathRooted(path)) {
+                return Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName) + "\\" + path;
+            }
+            return path;
         }
     }
 

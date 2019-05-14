@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -220,9 +220,13 @@ namespace VSRepoGUI
                         }
                         this.result = paths;
                         break;
+                    case "install": case "uninstall":
+                        consolestd = result_std;
+                        break;
                 }
+                
             }
-
+            
             process.WaitForExit();
             return result; // #### TODO process.ExitCode
         }

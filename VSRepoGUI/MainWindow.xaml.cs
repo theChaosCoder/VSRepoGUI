@@ -24,7 +24,6 @@ namespace VSRepoGUI
         public Package[] PluginsUnknown { get; set; }
 
         //public VsPlugins Plugins = new VsPlugins();
-        public Paths paths;
         public VsApi vsrepo = new VsApi();
         public bool IsNotWorking { get; set; } = true;
         public event PropertyChangedEventHandler PropertyChanged;
@@ -155,8 +154,8 @@ namespace VSRepoGUI
                     System.Environment.Exit(1);
                 }
                 AppIsWorking(true);
-                paths = vsrepo.GetPaths(Environment.Is64BitOperatingSystem);
-                vspackages_file = paths.Definitions;
+                vsrepo.SetArch(Environment.Is64BitOperatingSystem);
+                vspackages_file = vsrepo.GetPaths(Environment.Is64BitOperatingSystem).Definitions;
                 Win64 = Environment.Is64BitOperatingSystem;
                 Console.WriteLine("vspackages_file: " + vsrepo_file);
             }
@@ -173,7 +172,6 @@ namespace VSRepoGUI
 
                 // Triggering  Win64 is now safe
                 Win64 = Environment.Is64BitOperatingSystem;
-                paths = vsrepo.GetPaths(Win64);
             }
             
 
@@ -407,7 +405,6 @@ namespace VSRepoGUI
         {
             AppIsWorking(true);
             Win64 = true;
-            paths = vsrepo.GetPaths(Win64);
             await ReloadPluginsAsync();
             AppIsWorking(false);
         }
@@ -416,7 +413,6 @@ namespace VSRepoGUI
         {
             AppIsWorking(true);
             Win64 = false;
-            paths = vsrepo.GetPaths(Win64);
             await ReloadPluginsAsync();
             AppIsWorking(false);
         }
@@ -433,7 +429,7 @@ namespace VSRepoGUI
 
         private void Hyperlink_Click_1(object sender, RoutedEventArgs e)
         {
-            MessageBox.Show("Definitions: " + paths.Definitions + "\nScripts: " + paths.Scripts + "\nBinaries: " + paths.Binaries);
+            MessageBox.Show("Definitions: " + vsrepo.GetPaths(Win64).Definitions + "\nScripts: " + vsrepo.GetPaths(Win64).Scripts + "\nBinaries: " + vsrepo.GetPaths(Win64).Binaries);
         }
 
         private void Hyperlink_open(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
@@ -443,12 +439,12 @@ namespace VSRepoGUI
 
         private void Hyperlink_Click_Plugins(object sender, RoutedEventArgs e)
         {
-            Process.Start("explorer.exe", paths.Binaries);
+            Process.Start("explorer.exe", vsrepo.GetPaths(Win64).Binaries);
         }
 
         private void Hyperlink_Click_Scripts(object sender, RoutedEventArgs e)
         {
-            Process.Start("explorer.exe", paths.Scripts);
+            Process.Start("explorer.exe", vsrepo.GetPaths(Win64).Scripts);
         }
 
         private void Hyperlink_Click_about(object sender, RoutedEventArgs e)

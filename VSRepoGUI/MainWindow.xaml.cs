@@ -40,6 +40,14 @@ namespace VSRepoGUI
         public MainWindow()
         {
             InitializeComponent();
+
+            //High dpi 288 fix so it won't cut off the title bar on start
+            if (Height > SystemParameters.WorkArea.Height)
+            {
+                Height = SystemParameters.WorkArea.Height;
+                Top = 2;
+            }
+
             DataContext = this;
 
             if (IsVsrepo)

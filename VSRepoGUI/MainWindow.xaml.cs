@@ -1,9 +1,11 @@
 using Microsoft.Win32;
+using PropertyChanged;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -16,14 +18,7 @@ namespace VSRepoGUI
     public partial class MainWindow : Window, INotifyPropertyChanged
     {
         public string vspackages_file; // = @"..\vspackages.json";
-        //public Package[] Plugins { get; set; }
-        public Package[] PluginsFull { get; set; }
-        public Package[] PluginsInstalled { get; set; }
-        public Package[] PluginsNotInstalled { get; set; }
-        public Package[] PluginsUpdateAvailable { get; set; }
-        public Package[] PluginsUnknown { get; set; }
-
-        //public VsPlugins Plugins = new VsPlugins();
+        public VsPlugins Plugins { get; set; }
         public VsApi vsrepo = new VsApi();
         public bool IsNotWorking { get; set; } = true;
         public event PropertyChangedEventHandler PropertyChanged;
@@ -33,7 +28,7 @@ namespace VSRepoGUI
 
         RegistryKey localKey;
 
-        public string version = "v0.3a";
+        public string version = "v0.5a";
         public bool IsVsrepo = true; // else AVSRepo for Avisynth
         public string AppTitle { get; set; }
 
@@ -50,7 +45,18 @@ namespace VSRepoGUI
 
             public Package[] UpdateAvailable { get; set; }
             public Package[] Installed { get; set; }
+            public Package[] NotInstalled { get; set; }
             public Package[] Unknown { get; set; }
+
+            [AlsoNotifyFor("All")]
+            public Package[] Full { get; set; }
+
+            // Quick and dirty props for Tab Header (stringFormat doesn't work for Header)
+            public string TabInstalled { get; set; }
+            public string TabNotInstalled { get; set; }
+            public string TabUpdateAvailable { get; set; }
+            public string TabInstalledUnknown { get; set; }
+            public string TabAll { get; set; }
 
             private Package[] _all;
             public Package[] All
@@ -58,16 +64,25 @@ namespace VSRepoGUI
                 get { return _all; }
                 set
                 {
+                    UpdateAvailable = Array.FindAll(value, c => c.Status == VsApi.PluginStatus.UpdateAvailable);
+                    Installed =       Array.FindAll(value, c => c.Status == VsApi.PluginStatus.Installed);
+                    NotInstalled =    Array.FindAll(value, c => c.Status == VsApi.PluginStatus.NotInstalled);
+                    Unknown =         Array.FindAll(value, c => c.Status == VsApi.PluginStatus.InstalledUnknown);
+                    //Full =            value;
                     _all = value;
-                    UpdateAvailable = Array.FindAll(_all, c => c.Status == VsApi.PluginStatus.UpdateAvailable);
-                    Installed = Array.FindAll(_all, c => c.Status == VsApi.PluginStatus.Installed);
-                    Unknown = Array.FindAll(_all, c => c.Status == VsApi.PluginStatus.InstalledUnknown);
+
+                    TabUpdateAvailable =  string.Format("Updates ({0})", UpdateAvailable.Count());
+                    TabInstalled =        string.Format("Installed ({0})", Installed.Count());
+                    TabNotInstalled =     string.Format("Not Installed ({0})", NotInstalled.Count());
+                    TabInstalledUnknown = string.Format("Unknown Version ({0})", Unknown.Count());
+                    TabAll =              string.Format("Full List ({0})", _all.Count());
                 }
             }
         }
 
         public MainWindow()
         {
+            Plugins = new VsPlugins();
             InitializeComponent();
 
             //High dpi 288 fix so it won't cut off the title bar on start
@@ -76,8 +91,6 @@ namespace VSRepoGUI
                 Height = SystemParameters.WorkArea.Height;
                 Top = 2;
             }
-
-            DataContext = this;
 
             if (IsVsrepo)
                 AppTitle = "VSRepoGUI - A simple plugin manager for VapourSynth | " + version;
@@ -177,7 +190,7 @@ namespace VSRepoGUI
 
             try
             {
-                PluginsFull = LoadLocalVspackage();
+                Plugins.All = LoadLocalVspackage();
                 //Check OnStart online for new definitions.
                 DateTime dt = File.GetLastWriteTime(vspackages_file);
                 if (dt < dt.AddDays(1))
@@ -203,14 +216,14 @@ namespace VSRepoGUI
             // Set Plugin status (installed, not installed, update available etc.)
             foreach (var plugin in plugins_installed)
             {
-                var index = Array.FindIndex(PluginsFull, row => row.Identifier == plugin.Key);
+                var index = Array.FindIndex(Plugins.All, row => row.Identifier == plugin.Key);
                 if (index >= 0) //-1 if not found
                 {
-                    PluginsFull[index].Status = plugin.Value.Value;
-                    PluginsFull[index].Releases[0].VersionLocal = plugin.Value.Key;
+                    Plugins.All[index].Status = plugin.Value.Value;
+                    Plugins.All[index].Releases[0].VersionLocal = plugin.Value.Key;
                 }
             }
-            FilterPlugins(PluginsFull);
+            FilterPlugins(Plugins.Full);
             AppIsWorking(false);
         }
 
@@ -280,15 +293,14 @@ namespace VSRepoGUI
             //var packages = JsonConvert.DeserializeObject<Vspackage>(jsonString);
             //return (packages.FileFormat, packages.Packages);
             return packages.Packages;
-
         }
 
         public void AppIsWorking(bool status)
         {
             Progressbar.IsIndeterminate = status;
             IsNotWorking = !status;
-            //await ReloadPluginsAsync();
         }
+
 
         public void FilterPlugins(Package[] plugins)
         {
@@ -303,13 +315,20 @@ namespace VSRepoGUI
                 {
                     plugins = Array.FindAll(plugins, c => c.Status != VsApi.PluginStatus.Installed);
                 }
-                PluginsInstalled = Array.FindAll(plugins, c => c.Status == VsApi.PluginStatus.Installed);
-                PluginsNotInstalled = Array.FindAll(plugins, c => c.Status == VsApi.PluginStatus.NotInstalled);
-                PluginsUpdateAvailable = Array.FindAll(plugins, c => c.Status == VsApi.PluginStatus.UpdateAvailable);
-                PluginsUnknown = Array.FindAll(plugins, c => c.Status == VsApi.PluginStatus.InstalledUnknown);
+
+                if(search.Length == 0)
+                {
+                    Plugins.All = Plugins.Full;
+                } else
+                {
+                    Plugins.All = plugins;
+                }                
                 dataGrid.Columns[0].SortDirection = ListSortDirection.Ascending;
+                dataGridAvailable.Columns[0].SortDirection = ListSortDirection.Ascending;
+                dataGridUnknown.Columns[0].SortDirection = ListSortDirection.Ascending;
+                dataGridNotInstalled.Columns[0].SortDirection = ListSortDirection.Ascending;
+                dataGridAll.Columns[0].SortDirection = ListSortDirection.Ascending;
             }
-            
         }
 
         private async Task ReloadPluginsAsync()
@@ -327,8 +346,9 @@ namespace VSRepoGUI
                     _plugins[index].Releases[0].VersionLocal = plugin.Value.Key;
                 }
             }
-            PluginsFull = _plugins;
-            FilterPlugins(PluginsFull);
+            Plugins.Full = _plugins;
+            Plugins.All = _plugins;
+            FilterPlugins(Plugins.Full);
         }
 
         private async void Button_upgrade_all(object sender, RoutedEventArgs e)
@@ -382,17 +402,17 @@ namespace VSRepoGUI
 
         private void TextBox_TextChanged(object sender, TextChangedEventArgs e)
         {
-            FilterPlugins(PluginsFull);
+            FilterPlugins(Plugins.Full);
         }
 
         private void HideInstalled_Checked(object sender, RoutedEventArgs e)
         {
-            FilterPlugins(PluginsFull);
+            FilterPlugins(Plugins.Full);
         }
 
         private void HideInstalled_Unchecked(object sender, RoutedEventArgs e)
         {
-            FilterPlugins(PluginsFull);
+            FilterPlugins(Plugins.Full);
         }
 
         private void TextBox_GotFocus(object sender, RoutedEventArgs e)
@@ -421,8 +441,7 @@ namespace VSRepoGUI
         {
             MessageBox.Show("Hello friend");
         }
-        private void Hyperlink_RequestNavigate(object sender,
-                                       System.Windows.Navigation.RequestNavigateEventArgs e)
+        private void Hyperlink_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
         {
             System.Diagnostics.Process.Start(e.Uri.AbsoluteUri);
         }

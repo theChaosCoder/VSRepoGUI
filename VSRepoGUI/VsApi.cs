@@ -20,13 +20,6 @@ namespace VSRepoGUI
         public string python_bin = "python.exe"; //"C:\\Python37\\python.exe"
         public event PropertyChangedEventHandler PropertyChanged;
 
-        protected virtual void OnPropertyChanged(string propertyName)
-        {
-            PropertyChangedEventHandler handler = PropertyChanged;
-            if (handler != null) handler(this, new PropertyChangedEventArgs(propertyName));
-        }
-
-
 
         public async Task Uninstall(string plugin)
         {

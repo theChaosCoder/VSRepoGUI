@@ -128,7 +128,6 @@ namespace VSRepoGUI
 
             if (settings is null)
             {
-                
                 AppIsWorking(true);
                 vsrepo.SetArch(Environment.Is64BitOperatingSystem);
                 vspackages_file = vsrepo.GetPaths(Environment.Is64BitOperatingSystem).Definitions;
@@ -161,18 +160,11 @@ namespace VSRepoGUI
             }
             catch
             {
-                MessageBox.Show("Could not read (or download) vspackages.json.");
+                MessageBox.Show("Could not read (or download) avspackages.json.");
                 System.Environment.Exit(1);
             }
 
             var plugins_installed = vsrepo.GetInstalled();
-            //AppIsWorking(false);
-
-            /* var a = new Dictionary<string, string>();
-             a.Add("Binaries", paths.Binaries);
-             a.Add("Scripts", paths.Scripts);
-             string joutput = JsonConvert.SerializeObject(a);
-             System.IO.File.WriteAllText("vsrepogui.json", joutput);*/
 
             // Set Plugin status (installed, not installed, update available etc.)
             foreach (var plugin in plugins_installed)

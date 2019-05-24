@@ -19,6 +19,12 @@ namespace VSRepoGUI
 
         private string settingsfile = "vsrepogui.json";
 
+        public Settings LoadLocalFile(string file)
+        {
+            this.settingsfile = file;
+            return LoadLocalFile();
+        }
+
         public Settings LoadLocalFile()
         {
             if (File.Exists(settingsfile))

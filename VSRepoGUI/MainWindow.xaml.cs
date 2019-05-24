@@ -9,6 +9,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media.Imaging;
+
 namespace VSRepoGUI
 {
     /// <summary>
@@ -19,7 +21,7 @@ namespace VSRepoGUI
     {
         public string vspackages_file; // = @"..\vspackages.json";
         public VsPlugins Plugins { get; set; }
-        public VsApi vsrepo = new VsApi();
+        public VsApi vsrepo;
         public bool IsNotWorking { get; set; } = true;
         public event PropertyChangedEventHandler PropertyChanged;
         public bool HideInstalled { get; set; }
@@ -29,7 +31,7 @@ namespace VSRepoGUI
         RegistryKey localKey;
 
         public string version = "v0.5a";
-        public bool IsVsrepo = true; // else AVSRepo for Avisynth
+        public bool IsVsrepo = false; // else AVSRepo for Avisynth
         public string AppTitle { get; set; }
 
         private bool _win64;
@@ -82,8 +84,9 @@ namespace VSRepoGUI
 
         public MainWindow()
         {
+            vsrepo = new VsApi(IsVsrepo);
             Plugins = new VsPlugins();
-            InitializeComponent();
+            
 
             //High dpi 288 fix so it won't cut off the title bar on start
             if (Height > SystemParameters.WorkArea.Height)
@@ -91,21 +94,99 @@ namespace VSRepoGUI
                 Height = SystemParameters.WorkArea.Height;
                 Top = 2;
             }
-
+            InitializeComponent();
             if (IsVsrepo)
                 AppTitle = "VSRepoGUI - A simple plugin manager for VapourSynth | " + version;
             else
-            {
                 AppTitle = "AVSRepoGUI - A simple plugin manager for AviSynth | " + version;
-                vsrepo.SetPortableMode(true);
-            }
                 
             AddChatter(vsrepo);
-            Init();
+            if (IsVsrepo)
+                Init();
+            else
+                InitAvs();
             //var wizardDialog = new SettingsWindow().ShowDialog();
         }
 
+        private void InitAvs()
+        {
+            ImageHeader.Source = new BitmapImage(new Uri("pack://application:,,,/Resources/avsrepo_logo.png"));
+            Link_avsdoom9.Visibility = Visibility.Visible;
+            Link_vsdoom9.Visibility = Visibility.Collapsed;
 
+            var settings = new Settings().LoadLocalFile("avsrepogui.json");
+            var vsrepo_file = "avsrepo.exe";
+            if (File.Exists(vsrepo_file))
+            {
+                vsrepo.python_bin = vsrepo_file;
+            }
+            else
+            {
+                MessageBox.Show("Can't find avsrepo.exe");
+                System.Environment.Exit(1);
+            }
+
+            if (settings is null)
+            {
+                
+                AppIsWorking(true);
+                vsrepo.SetArch(Environment.Is64BitOperatingSystem);
+                vspackages_file = vsrepo.GetPaths(Environment.Is64BitOperatingSystem).Definitions;
+                Win64 = Environment.Is64BitOperatingSystem;
+            }
+            else // Portable mode, valid vsrepogui.json found
+            {
+                LabelPortable.Visibility = Visibility.Visible;
+                vsrepo.SetPortableMode(true);
+                vsrepo.python_bin = settings.Bin;
+                vspackages_file = Path.GetDirectoryName(settings.Bin) + "\\avspackages.json";
+
+                // Set paths manually and DONT trigger Win64 onPropertyChanged yet
+                vsrepo.SetPaths(true, new Paths() { Binaries = settings.Win64.Binaries, Scripts = settings.Win64.Scripts, Definitions = vspackages_file });
+                vsrepo.SetPaths(false, new Paths() { Binaries = settings.Win32.Binaries, Scripts = settings.Win32.Scripts, Definitions = vspackages_file });
+
+                // Triggering  Win64 is now safe
+                Win64 = Environment.Is64BitOperatingSystem;
+            }
+
+            try
+            {
+                Plugins.All = LoadLocalVspackage();
+                //Check OnStart online for new definitions.
+                DateTime dt = File.GetLastWriteTime(vspackages_file);
+                if (dt < dt.AddDays(1))
+                {
+                    vsrepo.Update();
+                }
+            }
+            catch
+            {
+                MessageBox.Show("Could not read (or download) vspackages.json.");
+                System.Environment.Exit(1);
+            }
+
+            var plugins_installed = vsrepo.GetInstalled();
+            //AppIsWorking(false);
+
+            /* var a = new Dictionary<string, string>();
+             a.Add("Binaries", paths.Binaries);
+             a.Add("Scripts", paths.Scripts);
+             string joutput = JsonConvert.SerializeObject(a);
+             System.IO.File.WriteAllText("vsrepogui.json", joutput);*/
+
+            // Set Plugin status (installed, not installed, update available etc.)
+            foreach (var plugin in plugins_installed)
+            {
+                var index = Array.FindIndex(Plugins.All, row => row.Identifier == plugin.Key);
+                if (index >= 0) //-1 if not found
+                {
+                    Plugins.All[index].Status = plugin.Value.Value;
+                    Plugins.All[index].Releases[0].VersionLocal = plugin.Value.Key;
+                }
+            }
+            FilterPlugins(Plugins.Full);
+            AppIsWorking(false);
+        }
 
 
         private void Init()
@@ -205,13 +286,6 @@ namespace VSRepoGUI
             }
 
             var plugins_installed = vsrepo.GetInstalled();
-            //AppIsWorking(false);
-
-            /* var a = new Dictionary<string, string>();
-             a.Add("Binaries", paths.Binaries);
-             a.Add("Scripts", paths.Scripts);
-             string joutput = JsonConvert.SerializeObject(a);
-             System.IO.File.WriteAllText("vsrepogui.json", joutput);*/
 
             // Set Plugin status (installed, not installed, update available etc.)
             foreach (var plugin in plugins_installed)
@@ -334,6 +408,11 @@ namespace VSRepoGUI
         private async Task ReloadPluginsAsync()
         {
             var _plugins = LoadLocalVspackage();
+            if(Win64)
+                _plugins = Array.FindAll(_plugins, c => c.Releases[0].Win64 != null);
+            else
+                _plugins = Array.FindAll(_plugins, c => c.Releases[0].Win32 != null);
+
             var plugins_installed = await vsrepo.GetInstalledAsync();
 
             // Set Plugin status (installed, not installed, update available etc.)
@@ -355,6 +434,7 @@ namespace VSRepoGUI
         {
             AppIsWorking(true);
             await vsrepo.UpgradeAll();
+            await ReloadPluginsAsync();
             AppIsWorking(false);
         }
 
@@ -371,7 +451,6 @@ namespace VSRepoGUI
             switch (plugin_status)
             {
                 case VsApi.PluginStatus.Installed:
-
                     if (MessageBox.Show("Uninstall " + ((Package)button.DataContext).Name + "?", "Uninstall?", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
                     {
                         await vsrepo.Uninstall(plugin);

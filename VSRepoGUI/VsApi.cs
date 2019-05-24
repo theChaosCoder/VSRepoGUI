@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
@@ -10,6 +11,7 @@ namespace VSRepoGUI
 {
     public class VsApi : INotifyPropertyChanged
     {
+        private bool IsVsrepo;
         private string portable = "";
         private object result;
         public enum PluginStatus : int { NotInstalled, Installed, InstalledUnknown, UpdateAvailable };
@@ -17,9 +19,13 @@ namespace VSRepoGUI
         public Dictionary<bool, Paths> paths = new Dictionary<bool, Paths>();
         private string vsrepo_path = "vsrepo.py";
         public string consolestd { get; set; }
-        public string python_bin = "python.exe"; //"C:\\Python37\\python.exe"
+        public string python_bin = "python.exe";
         public event PropertyChangedEventHandler PropertyChanged;
 
+        public VsApi(bool IsVsrepo = true)
+        {
+            this.IsVsrepo = IsVsrepo;
+        }
 
         public async Task Uninstall(string plugin)
         {
@@ -136,21 +142,24 @@ namespace VSRepoGUI
                 {
                     return String.Format("-b \"{0}\" -s \"{1}\"", paths[Win64].Binaries, paths[Win64].Scripts);
                 }
-                return "";                
             }
             return "";
         }
 
         private object Run(string operation, string plugins = "")
         {
-
+            string args;
+            if (IsVsrepo)
+                args = String.Format("\"{0}\" {1} {2} {3} {4} {5}", vsrepo_path, portable, getCustomPaths(), getTarget(operation), operation, plugins);
+            else
+                args = String.Format("{0} {1} {2} {3}", getCustomPaths(), getTarget(operation), operation, plugins); // avsrepo.exe currently uses always the -p arg so we don't set it here.
 
             var process = new Process()
             {
                 StartInfo = new ProcessStartInfo
                 {
                     FileName = python_bin,
-                    Arguments = String.Format("\"{0}\" {1} {2} {3} {4} {5}", vsrepo_path, portable, getCustomPaths(), getTarget(operation), operation, plugins), //-p install grain
+                    Arguments = args,
                     RedirectStandardOutput = true,
                     UseShellExecute = false,
                     CreateNoWindow = true,
@@ -165,7 +174,7 @@ namespace VSRepoGUI
                 MessageBox.Show("There is a problem with python" + ex.ToString());
                 //System.Environment.Exit(1);
             }
-            Console.WriteLine("### RUN: " + process.StartInfo.Arguments);
+            Console.WriteLine("### RUN: " + process.StartInfo.FileName + " " + process.StartInfo.Arguments);
             //process.BeginOutputReadLine();
             //string error = process.StandardError.ReadToEnd();
             //process.WaitForExit();
@@ -180,7 +189,7 @@ namespace VSRepoGUI
                 switch (operation)
                 {
                     case "installed":
-                        
+
                         if (!result_std.Contains("Identifier"))
                         {
                             //Console.WriteLine(result_std);
@@ -213,11 +222,11 @@ namespace VSRepoGUI
                         }
                         this.result = paths;
                         break;
-                    case "install": case "uninstall":
+                    case "install":
+                    case "uninstall":
                         consolestd = result_std;
                         break;
                 }
-                
             }
             
             process.WaitForExit();

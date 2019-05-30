@@ -1,4 +1,4 @@
-using Microsoft.Win32;
+﻿using Microsoft.Win32;
 using PropertyChanged;
 using System;
 using System.Collections.Generic;
@@ -6,6 +6,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Management;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -31,7 +32,7 @@ namespace VSRepoGUI
         RegistryKey localKey;
 
         public string version = "v0.5a";
-        public bool IsVsrepo = false; // else AVSRepo for Avisynth
+        public bool IsVsrepo { get; set; } = true; // else AVSRepo for Avisynth
         public string AppTitle { get; set; }
 
         private bool _win64;
@@ -95,6 +96,11 @@ namespace VSRepoGUI
                 Top = 2;
             }
             InitializeComponent();
+
+            //TabablzControl doesn't support hiding or collapsing Tabitems.
+            if (!IsVsrepo)
+                TabablzControl.Items.RemoveAt(TabablzControl.Items.Count - 1);
+
             if (IsVsrepo)
                 AppTitle = "VSRepoGUI - A simple plugin manager for VapourSynth | " + version;
             else
@@ -259,8 +265,8 @@ namespace VSRepoGUI
                 // Triggering  Win64 is now safe
                 Win64 = Environment.Is64BitOperatingSystem;
             }
-            
 
+            
             try
             {
                 Plugins.All = LoadLocalVspackage();
@@ -541,6 +547,74 @@ namespace VSRepoGUI
         {
             MessageBox.Show("Version " + version);
         }
+
+        private void DiagPrintHelper(Dictionary<string, List<string>> plugins, string id, string errmsg)
+        {
+            if (plugins[id].Count() > 0)
+            {
+                TextBlock_Diagnose.Text += errmsg;
+                TextBlock_Diagnose.Text += "------------------------------------------------------------\n";
+                foreach (var p in plugins[id])
+                {
+                    TextBlock_Diagnose.Text += "   " + p + "\n";
+                }
+            }
+        }
+        private async void TabablzControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (DiagnoseTab.IsSelected)
+            {
+                AppIsWorking(true);
+                var diag = new Diagnose(vsrepo.python_bin);
+                Dictionary<string, List<string>> plugins = await diag.CheckPluginsAsync(vsrepo.GetPaths(Win64).Binaries);
+                var version = await diag.GetVsVersion();
+
+                if(plugins != null)
+                {
+                    var osname = (from x in new ManagementObjectSearcher("SELECT Caption FROM Win32_OperatingSystem").Get().Cast<ManagementObject>()
+                               select x.GetPropertyValue("Caption")).FirstOrDefault();
+
+                    ManagementObjectSearcher mos = new ManagementObjectSearcher("root\\CIMV2", "SELECT * FROM Win32_Processor");
+                    string cpu = "";
+                    foreach (ManagementObject mo in mos.Get())
+                    {
+                        cpu = mo["Name"].ToString();
+                    }
+
+                    TextBlock_Diagnose.Text = @"/!\ Only Plugins and no Scripts are tested /!\";
+                    TextBlock_Diagnose.Text += "\n" + version;
+                    TextBlock_Diagnose.Text += "\nOS: " + osname != null ? osname.ToString() : "Unknown";
+                    TextBlock_Diagnose.Text += "\nIs 64Bit OS?: " + System.Environment.Is64BitOperatingSystem;
+                    TextBlock_Diagnose.Text += "\nCPU: " + cpu;
+                    TextBlock_Diagnose.Text += "\nCPU Cores: " + System.Environment.ProcessorCount;
+
+                    TextBlock_Diagnose.Text += "\n\n============================================================\n";
+                    TextBlock_Diagnose.Text += "\n\n============================================================\n";
+
+                    TextBlock_Diagnose.Text += string.Format("\nChecked Plugins: {0}, Notices: {1}, Errors: {2}\n\n",
+                            plugins["no_problems"].Count() + plugins["not_a_vsplugin"].Count() + plugins["missing_dependency"].Count() + plugins["wrong_arch"].Count() + plugins["others"].Count(),
+                            plugins["not_a_vsplugin"].Count(),
+                            plugins["wrong_arch"].Count() + plugins["missing_dependency"].Count() + plugins["others"].Count());
+
+                    TextBlock_Diagnose.Text += string.Format("Plugin Path: {0}\n", vsrepo.GetPaths(Win64).Binaries);
+
+                    DiagPrintHelper(plugins, "wrong_arch", "\n🔥 Error 193 - You propably mixed 32/64 bit plugins: \n");
+                    DiagPrintHelper(plugins, "missing_dependency", "\n🔥 Error 126 - A DLL dependency is probably missing: \n");
+                    DiagPrintHelper(plugins, "namespace", "\n🔥 Namespace already populated, therefore it failed to load: \n");
+                    DiagPrintHelper(plugins, "others", "\n🔥 Error unknown: \n");
+                    DiagPrintHelper(plugins, "not_a_vsplugin", "\n😑 Notice - Not a VapourSynth Plugin: \n");
+                    DiagPrintHelper(plugins, "no_problems", "\n👍 Successfully loaded Plugins: \n");
+
+                } else
+                {
+                    TextBlock_Diagnose.Text = "Some error occured";
+                }
+
+                AppIsWorking(false);
+            }
+            
+        }
+
     }
 
 

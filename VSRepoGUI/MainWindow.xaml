@@ -18,12 +18,13 @@
         FontFamily="{DynamicResource MaterialDesignFont}"
 
         Title="{Binding AppTitle}" Height="760" Width="880"  WindowStartupLocation="CenterScreen" MinWidth="800" MinHeight="400">
-    <!--:diag="clr-namespace:System.Diagnostics;assembly=WindowsBase"-->
+    <!--xmlns:diag="clr-namespace:System.Diagnostics;assembly=WindowsBase"-->
     <Window.Resources>
         <converters:ButtonStatusConverter x:Key="StatusToStyle" />
         <converters:ButtonStatusToTextConverter x:Key="StatusToText" />
         <converters:LabelStatusVisibilityConverter x:Key="VisText" />
         <converters:DateUtcConverter x:Key="DateFormat" />
+        <converters:BoolToCollapsedConverter x:Key="BoolToCollapsedConverter" />
     </Window.Resources>
 
     <Grid>
@@ -82,7 +83,7 @@
         </Grid>
         <ProgressBar Name="Progressbar" Grid.Row="1" Grid.Column="0" IsIndeterminate="False" VerticalAlignment="Top" Panel.ZIndex="80" IsEnabled="False"></ProgressBar>
 
-        <dragablz:TabablzControl Grid.Row="1" Grid.Column="0" FixedHeaderCount="4">
+        <dragablz:TabablzControl Grid.Row="1" Grid.Column="0" FixedHeaderCount="5" Name="TabablzControl" SelectionChanged="TabablzControl_SelectionChanged">
             <dragablz:TabablzControl.InterTabController>
                 <dragablz:InterTabController />
             </dragablz:TabablzControl.InterTabController>
@@ -310,9 +311,12 @@
                     </DataGrid.RowDetailsTemplate>
                 </DataGrid>
             </TabItem>
-            <!--<TabItem Header="Diagnose Problems">
-                <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="24">todo</TextBlock>
-            </TabItem>-->
+            <TabItem Header="&#x1F6A7; Diagnose Problems" x:Name="DiagnoseTab">
+                <ScrollViewer VerticalAlignment="Top">
+                    <TextBox x:Name="TextBlock_Diagnose" TextWrapping="Wrap" IsReadOnly="True" Margin="8" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto" FontFamily="Lucida Console">Loading...</TextBox>
+                </ScrollViewer>
+                
+            </TabItem>
         </dragablz:TabablzControl>
 
 

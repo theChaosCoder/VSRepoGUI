@@ -31,7 +31,7 @@ namespace VSRepoGUI
 
         RegistryKey localKey;
 
-        public string version = "v0.5a";
+        public string version = "v0.6a";
         public bool IsVsrepo { get; set; } = true; // else AVSRepo for Avisynth
         public string AppTitle { get; set; }
 
@@ -588,7 +588,6 @@ namespace VSRepoGUI
                     TextBlock_Diagnose.Text += "\nCPU: " + cpu;
                     TextBlock_Diagnose.Text += "\nCPU Cores: " + System.Environment.ProcessorCount;
 
-                    TextBlock_Diagnose.Text += "\n\n============================================================\n";
                     TextBlock_Diagnose.Text += "\n\n============================================================\n";
 
                     TextBlock_Diagnose.Text += string.Format("\nChecked Plugins: {0}, Notices: {1}, Errors: {2}\n\n",

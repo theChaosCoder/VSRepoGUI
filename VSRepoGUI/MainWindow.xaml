@@ -36,6 +36,18 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
+        <Grid.Resources>
+            <DataTemplate x:Key="DateTemplateLinks" x:Name="DateTemplateLinks">
+                <StackPanel Orientation="Vertical">
+                    <TextBlock FontSize="11" Visibility="{Binding Website, Converter={StaticResource VisText}}"><Hyperlink NavigateUri="{Binding Website}" RequestNavigate="Hyperlink_open">Website</Hyperlink></TextBlock>
+                    <TextBlock FontSize="11" Visibility="{Binding Github, Converter={StaticResource VisText}}"><Hyperlink NavigateUri="{Binding Github}" RequestNavigate="Hyperlink_open">Github</Hyperlink></TextBlock>
+                    <TextBlock FontSize="11" Visibility="{Binding Doom9, Converter={StaticResource VisText}}"><Hyperlink NavigateUri="{Binding Doom9}" RequestNavigate="Hyperlink_open">Doom9</Hyperlink></TextBlock>
+                </StackPanel>
+            </DataTemplate>
+            <DataTemplate x:Key="DateTemplateInstall" x:Name="DateTemplateInstall">
+                <Button x:Name="btnInstall" Width="124" Click="Button_Install" DataContext="{Binding Path=.}" Tag="{Binding Namespace}" Background="{Binding Status, Converter={StaticResource StatusToStyle}}" Content="{Binding Status, Converter={StaticResource StatusToText}}" IsEnabled="{Binding IsNotWorking, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type local:MainWindow}}}"></Button>
+            </DataTemplate>
+        </Grid.Resources>
 
         <Grid Grid.Row="0" Grid.Column="0" Panel.ZIndex="10" Background="#FF7BC9FF">
             <Grid.Effect>
@@ -53,9 +65,9 @@
 
             <StackPanel Grid.Column="0" Grid.Row="0" Grid.RowSpan="2" Grid.ColumnSpan="2">
                 <StackPanel  HorizontalAlignment="Right" VerticalAlignment="Top"  Orientation="Horizontal">
-                    <TextBlock Visibility="Collapsed" Margin="0,2,10,0" IsEnabled="{Binding IsNotWorking, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type local:MainWindow}}}"><Hyperlink Click="Hyperlink_Click_1">Paths</Hyperlink></TextBlock>
-                    <TextBlock Margin="0,2,10,0"><Hyperlink Click="Hyperlink_Click_Plugins">PLUGINS</Hyperlink></TextBlock>
-                    <TextBlock Margin="0,2,10,0"><Hyperlink Click="Hyperlink_Click_Scripts">SCRIPTS</Hyperlink></TextBlock>
+                    <TextBlock Visibility="Collapsed" Margin="0,2,10,0" IsEnabled="{Binding IsNotWorking}"><Hyperlink Click="Hyperlink_Click_1">Paths</Hyperlink></TextBlock>
+                    <TextBlock Margin="0,2,10,0" ToolTip="{ Binding CurrentPluginPath}"><Hyperlink Click="Hyperlink_Click_Plugins">PLUGINS</Hyperlink></TextBlock>
+                    <TextBlock Margin="0,2,10,0" ToolTip="{ Binding CurrentScriptPath}"><Hyperlink Click="Hyperlink_Click_Scripts">SCRIPTS</Hyperlink></TextBlock>
                     <TextBlock Margin="0,2,10,0"><Hyperlink NavigateUri="http://vsdb.top" RequestNavigate="Hyperlink_open">VS Database</Hyperlink></TextBlock>
                     <TextBlock Name="Link_vsdoom9" Margin="0,2,10,0"><Hyperlink NavigateUri="https://forum.doom9.org/showthread.php?t=175590" RequestNavigate="Hyperlink_open">VSRepo Doom9</Hyperlink></TextBlock>
                     <TextBlock Name="Link_avsdoom9" Visibility="Collapsed" Margin="0,2,10,0"><Hyperlink NavigateUri="https://forum.doom9.org/showthread.php?t=175822" RequestNavigate="Hyperlink_open">AVSRepo Doom9</Hyperlink></TextBlock>
@@ -96,31 +108,13 @@
 
                         <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="1.8*" />
 
-                        <DataGridTemplateColumn Header="Links" Width="Auto">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <StackPanel Orientation="Vertical">
-                                        <TextBlock FontSize="11" Visibility="{Binding Website, Converter={StaticResource VisText}}"><Hyperlink NavigateUri="{Binding Website}" RequestNavigate="Hyperlink_open">Website</Hyperlink></TextBlock>
-                                        <TextBlock FontSize="11" Visibility="{Binding Github, Converter={StaticResource VisText}}"><Hyperlink NavigateUri="{Binding Github}" RequestNavigate="Hyperlink_open">Github</Hyperlink></TextBlock>
-                                        <TextBlock FontSize="11" Visibility="{Binding Doom9, Converter={StaticResource VisText}}"><Hyperlink NavigateUri="{Binding Doom9}" RequestNavigate="Hyperlink_open">Doom9</Hyperlink></TextBlock>
-                                    </StackPanel>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Links" Width="Auto" CellTemplate="{StaticResource DateTemplateLinks}" />
 
                         <DataGridTextColumn Header="Version" Binding="{Binding Releases[0].Version}" Width="1*" />
                         <DataGridTextColumn Header="Local" Binding="{Binding Releases[0].VersionLocal}" Width="1*" />
                         <DataGridTextColumn Header="Published" Binding="{Binding Releases[0].Published, Converter={StaticResource DateFormat}, StringFormat={}{0:yyyy-MM-dd}}" Width="1*" />
                         <!--<DataGridCheckBoxColumn Header="Install" IsReadOnly="False" /> -->
-
-                        <DataGridTemplateColumn Header="Install" Width="Auto">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <Button x:Name="btnInstall" Width="124" Click="Button_Install" DataContext="{Binding Path=.}" Tag="{Binding Namespace}" Background="{Binding Status, Converter={StaticResource StatusToStyle}}" Content="{Binding Status, Converter={StaticResource StatusToText}}" IsEnabled="{Binding IsNotWorking, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type local:MainWindow}}}">
-                                    </Button>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Install" Width="Auto" CellTemplate="{StaticResource DateTemplateInstall}" />
 
                     </DataGrid.Columns>
 
@@ -144,31 +138,13 @@
 
                         <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="1.8*" />
 
-                        <DataGridTemplateColumn Header="Links" Width="Auto">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <StackPanel Orientation="Vertical">
-                                        <TextBlock FontSize="11" Visibility="{Binding Website, Converter={StaticResource VisText}}"><Hyperlink NavigateUri="{Binding Website}" RequestNavigate="Hyperlink_open">Website</Hyperlink></TextBlock>
-                                        <TextBlock FontSize="11" Visibility="{Binding Github, Converter={StaticResource VisText}}"><Hyperlink NavigateUri="{Binding Github}" RequestNavigate="Hyperlink_open">Github</Hyperlink></TextBlock>
-                                        <TextBlock FontSize="11" Visibility="{Binding Doom9, Converter={StaticResource VisText}}"><Hyperlink NavigateUri="{Binding Doom9}" RequestNavigate="Hyperlink_open">Doom9</Hyperlink></TextBlock>
-                                    </StackPanel>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Links" Width="Auto" CellTemplate="{StaticResource DateTemplateLinks}" />
 
                         <DataGridTextColumn Header="Version" Binding="{Binding Releases[0].Version}" Width="1*" />
                         <DataGridTextColumn Header="Local" Binding="{Binding Releases[0].VersionLocal}" Width="1*" />
                         <DataGridTextColumn Header="Published" Binding="{Binding Releases[0].Published, Converter={StaticResource DateFormat}, StringFormat={}{0:yyyy-MM-dd}}" Width="1*" />
                         <!--<DataGridCheckBoxColumn Header="Install" IsReadOnly="False" /> -->
-
-                        <DataGridTemplateColumn Header="Install" Width="Auto">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <Button x:Name="btnInstall" Width="124" Click="Button_Install" DataContext="{Binding Path=.}" Tag="{Binding Namespace}" Background="{Binding Status, Converter={StaticResource StatusToStyle}}" Content="{Binding Status, Converter={StaticResource StatusToText}}" IsEnabled="{Binding IsNotWorking, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type local:MainWindow}}}">
-                                    </Button>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Install" Width="Auto" CellTemplate="{StaticResource DateTemplateInstall}" />
 
                     </DataGrid.Columns>
 
@@ -188,31 +164,13 @@
 
                         <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="1.8*" />
 
-                        <DataGridTemplateColumn Header="Links" Width="Auto">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <StackPanel Orientation="Vertical">
-                                        <TextBlock FontSize="11" Visibility="{Binding Website, Converter={StaticResource VisText}}"><Hyperlink NavigateUri="{Binding Website}" RequestNavigate="Hyperlink_open">Website</Hyperlink></TextBlock>
-                                        <TextBlock FontSize="11" Visibility="{Binding Github, Converter={StaticResource VisText}}"><Hyperlink NavigateUri="{Binding Github}" RequestNavigate="Hyperlink_open">Github</Hyperlink></TextBlock>
-                                        <TextBlock FontSize="11" Visibility="{Binding Doom9, Converter={StaticResource VisText}}"><Hyperlink NavigateUri="{Binding Doom9}" RequestNavigate="Hyperlink_open">Doom9</Hyperlink></TextBlock>
-                                    </StackPanel>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Links" Width="Auto" CellTemplate="{StaticResource DateTemplateLinks}" />
 
                         <DataGridTextColumn Header="Version" Binding="{Binding Releases[0].Version}" Width="1*" />
                         <DataGridTextColumn Header="Local" Binding="{Binding Releases[0].VersionLocal}" Width="1*" />
                         <DataGridTextColumn Header="Published" Binding="{Binding Releases[0].Published, Converter={StaticResource DateFormat}, StringFormat={}{0:yyyy-MM-dd}}" Width="1*" />
                         <!--<DataGridCheckBoxColumn Header="Install" IsReadOnly="False" /> -->
-
-                        <DataGridTemplateColumn Header="Install" Width="Auto">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <Button x:Name="btnInstall" Width="124" Click="Button_Install" DataContext="{Binding Path=.}" Tag="{Binding Namespace}" Background="{Binding Status, Converter={StaticResource StatusToStyle}}" Content="{Binding Status, Converter={StaticResource StatusToText}}" IsEnabled="{Binding IsNotWorking, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type local:MainWindow}}}">
-                                    </Button>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Install" Width="Auto" CellTemplate="{StaticResource DateTemplateInstall}" />
 
                     </DataGrid.Columns>
 
@@ -232,31 +190,13 @@
 
                         <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="1.8*" />
 
-                        <DataGridTemplateColumn Header="Links" Width="Auto">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <StackPanel Orientation="Vertical">
-                                        <TextBlock FontSize="11" Visibility="{Binding Website, Converter={StaticResource VisText}}"><Hyperlink NavigateUri="{Binding Website}" RequestNavigate="Hyperlink_open">Website</Hyperlink></TextBlock>
-                                        <TextBlock FontSize="11" Visibility="{Binding Github, Converter={StaticResource VisText}}"><Hyperlink NavigateUri="{Binding Github}" RequestNavigate="Hyperlink_open">Github</Hyperlink></TextBlock>
-                                        <TextBlock FontSize="11" Visibility="{Binding Doom9, Converter={StaticResource VisText}}"><Hyperlink NavigateUri="{Binding Doom9}" RequestNavigate="Hyperlink_open">Doom9</Hyperlink></TextBlock>
-                                    </StackPanel>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Links" Width="Auto" CellTemplate="{StaticResource DateTemplateLinks}" />
 
                         <DataGridTextColumn Header="Version" Binding="{Binding Releases[0].Version}" Width="1*" />
                         <DataGridTextColumn Header="Local" Binding="{Binding Releases[0].VersionLocal}" Width="1*" />
                         <DataGridTextColumn Header="Published" Binding="{Binding Releases[0].Published, Converter={StaticResource DateFormat}, StringFormat={}{0:yyyy-MM-dd}}" Width="1*" />
                         <!--<DataGridCheckBoxColumn Header="Install" IsReadOnly="False" /> -->
-
-                        <DataGridTemplateColumn Header="Install" Width="Auto">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <Button x:Name="btnInstall" Width="124" Click="Button_Install" DataContext="{Binding Path=.}" Tag="{Binding Namespace}" Background="{Binding Status, Converter={StaticResource StatusToStyle}}" Content="{Binding Status, Converter={StaticResource StatusToText}}" IsEnabled="{Binding IsNotWorking, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type local:MainWindow}}}">
-                                    </Button>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Install" Width="Auto" CellTemplate="{StaticResource DateTemplateInstall}" />
 
                     </DataGrid.Columns>
 
@@ -275,33 +215,13 @@
                         <DataGridHyperlinkColumn Header="Namespace" Binding="{Binding Namespace}" Width="1*" />
 
                         <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="1.8*" />
-
-                        <DataGridTemplateColumn Header="Links" Width="Auto">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <StackPanel Orientation="Vertical">
-                                        <TextBlock FontSize="11" Visibility="{Binding Website, Converter={StaticResource VisText}}"><Hyperlink NavigateUri="{Binding Website}" RequestNavigate="Hyperlink_open">Website</Hyperlink></TextBlock>
-                                        <TextBlock FontSize="11" Visibility="{Binding Github, Converter={StaticResource VisText}}"><Hyperlink NavigateUri="{Binding Github}" RequestNavigate="Hyperlink_open">Github</Hyperlink></TextBlock>
-                                        <TextBlock FontSize="11" Visibility="{Binding Doom9, Converter={StaticResource VisText}}"><Hyperlink NavigateUri="{Binding Doom9}" RequestNavigate="Hyperlink_open">Doom9</Hyperlink></TextBlock>
-                                    </StackPanel>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Links" Width="Auto" CellTemplate="{StaticResource DateTemplateLinks}" />
 
                         <DataGridTextColumn Header="Version" Binding="{Binding Releases[0].Version}" Width="1*" />
                         <DataGridTextColumn Header="Local" Binding="{Binding Releases[0].VersionLocal}" Width="1*" />
                         <DataGridTextColumn Header="Published" Binding="{Binding Releases[0].Published, Converter={StaticResource DateFormat}, StringFormat={}{0:yyyy-MM-dd}}" Width="1*" />
                         <!--<DataGridCheckBoxColumn Header="Install" IsReadOnly="False" /> -->
-
-                        <DataGridTemplateColumn Header="Install" Width="Auto">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <Button x:Name="btnInstall" Width="124" Click="Button_Install" DataContext="{Binding Path=.}" Tag="{Binding Namespace}" Background="{Binding Status, Converter={StaticResource StatusToStyle}}" Content="{Binding Status, Converter={StaticResource StatusToText}}" IsEnabled="{Binding IsNotWorking, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type local:MainWindow}}}">
-                                    </Button>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-
+                        <DataGridTemplateColumn Header="Install" Width="Auto" CellTemplate="{StaticResource DateTemplateInstall}" />
                     </DataGrid.Columns>
 
                     <DataGrid.RowDetailsTemplate>

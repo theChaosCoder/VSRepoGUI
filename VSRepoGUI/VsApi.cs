@@ -27,14 +27,14 @@ namespace VSRepoGUI
             this.IsVsrepo = IsVsrepo;
         }
 
-        public async Task Uninstall(string plugin)
+        public async Task UninstallAsync(string plugin)
         {
             await Task.Run(() => Run("uninstall", plugin));
             //var result = (List<string>)this.result;
             //return result;
         }
 
-        public async Task Install(string plugin, bool force = false)
+        public async Task InstallAsync(string plugin, bool force = false)
         {
             string install = "install";
             if (force)
@@ -55,13 +55,13 @@ namespace VSRepoGUI
         }
 
         /// <summary>
-        /// bit for 32 and 64 bit
+        /// false for 32 and true for 64 bit
         /// </summary>
-        /// <param name="bit"></param>
-        /// <returns></returns>
-        public Paths GetPaths(bool bit)
+        /// <param name="isWin64"></param>
+        /// <returns>Paths</returns>
+        public Paths GetPaths(bool isWin64)
         {
-            if (!paths.ContainsKey(bit))
+            if (!paths.ContainsKey(isWin64))
             {
                 Run("paths");
                 var result = (List<string>)this.result;
@@ -71,9 +71,9 @@ namespace VSRepoGUI
                     Binaries = result[1],
                     Scripts = result[2]
                 };
-                paths.Add(bit, _paths);
+                paths.Add(isWin64, _paths);
             }
-            return paths[bit];
+            return paths[isWin64];
         }
         public void SetPaths(bool bit, Paths paths)
         {
@@ -85,7 +85,7 @@ namespace VSRepoGUI
             Run("update");
         }
 
-        public async Task Upgrade(string plugin, bool force = false)
+        public async Task UpgradeAsync(string plugin, bool force = false)
         {
             string upgrade = "upgrade";
             if (force)
@@ -93,7 +93,7 @@ namespace VSRepoGUI
             await Task.Run(() => Run(upgrade, plugin));
         }
 
-        public async Task UpgradeAll()
+        public async Task UpgradeAllAsync()
         {
             await Task.Run(() => Run("upgrade-all"));
         }
@@ -106,9 +106,9 @@ namespace VSRepoGUI
                 this.portable = "";
         }
 
-        public void SetArch(bool bit)
+        public void SetArch(bool isWin64)
         {
-            this.Win64 = bit;
+            this.Win64 = isWin64;
         }
 
         public void SetVsrepoPath(string path)

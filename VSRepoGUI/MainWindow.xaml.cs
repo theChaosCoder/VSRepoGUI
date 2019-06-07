@@ -1,4 +1,4 @@
-﻿using Microsoft.Win32;
+using Microsoft.Win32;
 using PropertyChanged;
 using System;
 using System.Collections.Generic;
@@ -22,7 +22,10 @@ namespace VSRepoGUI
     {
         public string vspackages_file; // = @"..\vspackages.json";
         public VsPlugins Plugins { get; set; }
+        public Dictionary<string, string> plugins_dll_parents = new Dictionary<string, string>();
         public VsApi vsrepo;
+        public string CurrentPluginPath  { get; set; }
+        public string CurrentScriptPath  { get; set; }
         public bool IsNotWorking { get; set; } = true;
         public event PropertyChangedEventHandler PropertyChanged;
         public bool HideInstalled { get; set; }
@@ -31,7 +34,7 @@ namespace VSRepoGUI
 
         RegistryKey localKey;
 
-        public string version = "v0.6a";
+        public string version = "v0.7a";
         public bool IsVsrepo { get; set; } = true; // else AVSRepo for Avisynth
         public string AppTitle { get; set; }
 
@@ -39,7 +42,7 @@ namespace VSRepoGUI
         public bool Win64
         {
             get { return _win64; }
-            set { _win64 = value; vsrepo.SetArch(_win64); }
+            set { _win64 = value; vsrepo.SetArch(_win64); CurrentPluginPath = vsrepo.paths[_win64].Binaries; CurrentScriptPath = vsrepo.paths[_win64].Scripts; }
         }
 
         public class VsPlugins : INotifyPropertyChanged
@@ -431,7 +434,7 @@ namespace VSRepoGUI
         private async void Button_upgrade_all(object sender, RoutedEventArgs e)
         {
             AppIsWorking(true);
-            await vsrepo.UpgradeAll();
+            await vsrepo.UpgradeAllAsync();
             await ReloadPluginsAsync();
             AppIsWorking(false);
         }
@@ -451,21 +454,21 @@ namespace VSRepoGUI
                 case VsApi.PluginStatus.Installed:
                     if (MessageBox.Show("Uninstall " + ((Package)button.DataContext).Name + "?", "Uninstall?", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
                     {
-                        await vsrepo.Uninstall(plugin);
+                        await vsrepo.UninstallAsync(plugin);
                     }
                     break;
                 case VsApi.PluginStatus.InstalledUnknown:
                     if (MessageBox.Show("Your local file (with unknown version) has the same name as " + ((Package)button.DataContext).Name + " and will be overwritten, proceed?", "Force Upgrade?", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
                     {
-                        await vsrepo.Upgrade(plugin, force: true);
+                        await vsrepo.UpgradeAsync(plugin, force: true);
                     }
 
                     break;
                 case VsApi.PluginStatus.NotInstalled:
-                    await vsrepo.Install(plugin);
+                    await vsrepo.InstallAsync(plugin);
                     break;
                 case VsApi.PluginStatus.UpdateAvailable:
-                    await vsrepo.Upgrade(plugin);
+                    await vsrepo.UpgradeAsync(plugin);
                     break;
             }
           

@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Management;
+using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -27,6 +28,7 @@ namespace VSRepoGUI
         public string CurrentPluginPath  { get; set; }
         public string CurrentScriptPath  { get; set; }
         public bool IsNotWorking { get; set; } = true;
+        public bool PortableMode { get; set; } = false;
         public event PropertyChangedEventHandler PropertyChanged;
         public bool HideInstalled { get; set; }
         public string consolestd { get; set; }
@@ -144,8 +146,9 @@ namespace VSRepoGUI
             }
             else // Portable mode, valid vsrepogui.json found
             {
+                PortableMode = true;
                 LabelPortable.Visibility = Visibility.Visible;
-                vsrepo.SetPortableMode(true);
+                vsrepo.SetPortableMode(PortableMode);
                 vsrepo.python_bin = settings.Bin;
                 vspackages_file = Path.GetDirectoryName(settings.Bin) + "\\avspackages.json";
 
@@ -215,10 +218,10 @@ namespace VSRepoGUI
             }
             if(settings is null)
             {
-                string reg_value = null;
+                string reg_vs_path = null;
                 try
                 {
-                    reg_value = (string)localKey.OpenSubKey("SOFTWARE\\VapourSynth").GetValue("Path");
+                    reg_vs_path = (string)localKey.OpenSubKey("SOFTWARE\\VapourSynth").GetValue("Path");
                 }
                 catch
                 {
@@ -228,13 +231,13 @@ namespace VSRepoGUI
                     System.Environment.Exit(1);
                 }
 
-                if (String.IsNullOrEmpty(reg_value))
+                if (String.IsNullOrEmpty(reg_vs_path))
                 {
                     MessageBox.Show(@"Path entry is empty or null in HKEY_LOCAL_MACHINE\SOFTWARE\VapourSynth. Your VS installation is broken or incomplete.");
                     System.Environment.Exit(1);
                 }
 
-                var vsrepo_file = reg_value + "\\vsrepo\\vsrepo.py";
+                var vsrepo_file = reg_vs_path + "\\vsrepo\\vsrepo.py";
 
 
                 Console.WriteLine("vsrepo_file: " + vsrepo_file);
@@ -245,7 +248,7 @@ namespace VSRepoGUI
                 }
                 else
                 {
-                    MessageBox.Show("Found VS installation in " + reg_value + " but no vsrepo.py file in " + vsrepo_file);
+                    MessageBox.Show("Found VS installation in " + reg_vs_path + " but no vsrepo.py file in " + vsrepo_file);
                     System.Environment.Exit(1);
                 }
                 AppIsWorking(true);
@@ -257,7 +260,8 @@ namespace VSRepoGUI
             else // Portable mode, valid vsrepogui.json found
             {
                 LabelPortable.Visibility = Visibility.Visible;
-                vsrepo.SetPortableMode(true);
+                PortableMode = true;
+                vsrepo.SetPortableMode(PortableMode);
                 vsrepo.SetVsrepoPath(settings.Bin);
                 vspackages_file = Path.GetDirectoryName(settings.Bin) + "\\vspackages.json";
 
@@ -298,6 +302,32 @@ namespace VSRepoGUI
                     Plugins.All[index].Releases[0].VersionLocal = plugin.Value.Key;
                 }
             }
+
+            // Build dll filename <-> Plugin name list
+            foreach (Package plugin in Plugins.All)
+            {
+                foreach(var release in plugin.Releases)
+                {
+                    if (release.Win32 != null)
+                    {
+                        foreach (var w in release.Win32.Files)
+                        {
+                            if (!plugins_dll_parents.ContainsKey(w.Key))
+                                plugins_dll_parents.Add(w.Key, plugin.Name);
+                        }
+                    }
+                    if (release.Win64 != null)
+                    {
+                        foreach (var w in release.Win64.Files)
+                        {
+                            //string[] hash_parent = { w.Value[1], plugin.Name };
+                            if (!plugins_dll_parents.ContainsKey(w.Key))
+                                plugins_dll_parents.Add(w.Key, plugin.Name);
+                        }
+                    } 
+                }
+            }
+
             FilterPlugins(Plugins.Full);
             AppIsWorking(false);
         }
@@ -551,7 +581,7 @@ namespace VSRepoGUI
             MessageBox.Show("Version " + version);
         }
 
-        private void DiagPrintHelper(Dictionary<string, List<string>> plugins, string id, string errmsg)
+        private void DiagPrintHelper(Dictionary<string, List<string>> plugins, string id, string errmsg, bool fullpath = false)
         {
             if (plugins[id].Count() > 0)
             {
@@ -559,7 +589,10 @@ namespace VSRepoGUI
                 TextBlock_Diagnose.Text += "------------------------------------------------------------\n";
                 foreach (var p in plugins[id])
                 {
-                    TextBlock_Diagnose.Text += "   " + p + "\n";
+                    if(fullpath)
+                        TextBlock_Diagnose.Text += "   " + p + "\n";
+                    else
+                        TextBlock_Diagnose.Text += "   " + Path.GetFileName(p) + "\n";
                 }
             }
         }
@@ -567,9 +600,34 @@ namespace VSRepoGUI
         {
             if (DiagnoseTab.IsSelected)
             {
+                // http://www.vapoursynth.com/doc/autoloading.html#windows
+                // 1. <AppData>\VapourSynth\plugins64
+                // 2. <VapourSynth path>\core64\plugins
+                // 3. <VapourSynth path>\plugins64
+                // vsrepo returns (always?) the path of the AppData folder no 1.
+                // User Plugins in core64 are bad.
                 AppIsWorking(true);
                 var diag = new Diagnose(vsrepo.python_bin);
                 Dictionary<string, List<string>> plugins = await diag.CheckPluginsAsync(vsrepo.GetPaths(Win64).Binaries);
+                if (!PortableMode)
+                {
+                    Dictionary<string, List<string>> plugins64folder = await diag.CheckPluginsAsync((string)localKey.OpenSubKey("SOFTWARE\\VapourSynth").GetValue("Plugins"));
+
+                    //Check for duplicate dll files in both folders: appdata\plugins and vapoursynth\plugins
+                    var p1 = plugins.Values.SelectMany(x => x.Select(p => Path.GetFileName(p))).ToList();
+                    var p2 = plugins64folder.Values.SelectMany(x => x.Select(p => Path.GetFileName(p))).ToList();
+                    
+
+                    //Merge appdata\plugins and vapoursynth\plugins
+                    for (int i = 0; i < plugins.Count; i++)
+                    {
+                        plugins[plugins.ElementAt(i).Key] = plugins[plugins.ElementAt(i).Key].Concat(plugins64folder[plugins.ElementAt(i).Key]).ToList();
+                    }
+
+                    plugins["duplicate_dlls"] = p1.Intersect(p2).ToList();
+
+                }
+
                 var version = await diag.GetVsVersion();
 
                 if(plugins != null)
@@ -584,6 +642,17 @@ namespace VSRepoGUI
                         cpu = mo["Name"].ToString();
                     }
 
+                    Dictionary<string, string> known_files = new Dictionary<string, string>();
+                    int count_unident_dll = 0;
+                    foreach (var p in plugins["not_a_vsplugin"])
+                    {
+                        if (plugins_dll_parents.ContainsKey(Path.GetFileName(p)))
+                            known_files.Add(p, plugins_dll_parents[Path.GetFileName(p)]);
+                        else
+                            count_unident_dll++;
+                    }
+
+
                     TextBlock_Diagnose.Text = @"/!\ Only Plugins and no Scripts are tested /!\";
                     TextBlock_Diagnose.Text += "\n" + version;
                     TextBlock_Diagnose.Text += "\nOS: " + osname != null ? osname.ToString() : "Unknown";
@@ -594,18 +663,87 @@ namespace VSRepoGUI
                     TextBlock_Diagnose.Text += "\n\n============================================================\n";
 
                     TextBlock_Diagnose.Text += string.Format("\nChecked Plugins: {0}, Notices: {1}, Errors: {2}\n\n",
-                            plugins["no_problems"].Count() + plugins["not_a_vsplugin"].Count() + plugins["missing_dependency"].Count() + plugins["wrong_arch"].Count() + plugins["others"].Count(),
-                            plugins["not_a_vsplugin"].Count(),
-                            plugins["wrong_arch"].Count() + plugins["missing_dependency"].Count() + plugins["others"].Count());
+                             plugins.Values.SelectMany(x => x).Count(),
+                            //plugins["no_problems"].Count() + plugins["not_a_vsplugin"].Count() + plugins["missing_dependency"].Count() + plugins["wrong_arch"].Count() + plugins["others"].Count(),
+                            count_unident_dll + plugins["duplicate_dlls"].Count(),
+                            plugins["wrong_arch"].Count() + plugins["missing_dependency"].Count() + plugins["others"].Count() + plugins["namespace"].Count());
 
-                    TextBlock_Diagnose.Text += string.Format("Plugin Path: {0}\n", vsrepo.GetPaths(Win64).Binaries);
+                    if(PortableMode)
+                        TextBlock_Diagnose.Text += string.Format("Plugin Path: {0}\n", vsrepo.GetPaths(Win64).Binaries);
+                    else
+                        TextBlock_Diagnose.Text += string.Format("Plugin Paths: \n\t{0}\n\t{1}\n", vsrepo.GetPaths(Win64).Binaries, (string)localKey.OpenSubKey("SOFTWARE\\VapourSynth").GetValue("Plugins"));
 
-                    DiagPrintHelper(plugins, "wrong_arch", "\n🔥 Error 193 - You propably mixed 32/64 bit plugins: \n");
-                    DiagPrintHelper(plugins, "missing_dependency", "\n🔥 Error 126 - A DLL dependency is probably missing: \n");
-                    DiagPrintHelper(plugins, "namespace", "\n🔥 Namespace already populated, therefore it failed to load: \n");
-                    DiagPrintHelper(plugins, "others", "\n🔥 Error unknown: \n");
-                    DiagPrintHelper(plugins, "not_a_vsplugin", "\n😑 Notice - Not a VapourSynth Plugin: \n");
-                    DiagPrintHelper(plugins, "no_problems", "\n👍 Successfully loaded Plugins: \n");
+                    DiagPrintHelper(plugins, "wrong_arch", "\n\n🔥 Error 193 - You probably mixed 32/64 bit plugins: \n", true);
+                    //DiagPrintHelper(plugins, "missing_dependency", "\n\n🔥 Error 126 - A DLL dependency is probably missing: \n");
+                    
+                    if (plugins["missing_dependency"].Count() > 0)
+                    {
+                        TextBlock_Diagnose.Text += "\n\n🔥 Error 126 - A DLL dependency is probably missing: \n";
+                        TextBlock_Diagnose.Text += "------------------------------------------------------------\n";
+                        bool hint_listpedeps = false;
+                        foreach (var p in plugins["missing_dependency"])
+                        {
+                            Diagnose.Depends file_dependencies = null;
+                           
+                            try
+                            {
+                                file_dependencies = await diag.GetDllDependencies(p);
+                            } catch
+                            {
+                                hint_listpedeps = true;
+                            }
+                            
+                            if(file_dependencies != null)
+                            {
+                                TextBlock_Diagnose.Text += "   " + p + "\n";
+                                TextBlock_Diagnose.Text += "   \t requires following dependencies (one of these could be missing):\n\n";
+
+                                foreach (var dependency in file_dependencies.Imports)
+                                {
+                                    TextBlock_Diagnose.Text += "   \t - " + dependency + "\n";
+                                }
+                                TextBlock_Diagnose.Text += "\n";
+                            } else
+                            {
+                                TextBlock_Diagnose.Text += "   " + p + "\n";
+                            }
+                        }
+                        if(hint_listpedeps)
+                        {
+                            TextBlock_Diagnose.Text += "\nInstall listpedeps.exe via  'choco install pedeps'";
+                            TextBlock_Diagnose.Text += "\nor copy listpedeps.exe next to vsrepogui.exe for detailed infomation about missing dependencies.";
+                            TextBlock_Diagnose.Text += "\nDownload here: https://github.com/brechtsanders/pedeps/releases\n\n";
+                        }
+                    }
+
+                    DiagPrintHelper(plugins, "namespace", "\n\n🔥 Namespace already populated, therefore it failed to load: \n", true);
+                    DiagPrintHelper(plugins, "others", "\n\n🔥 Error unknown: \n", true);
+
+                    var not_a_vsplugin_known = plugins["not_a_vsplugin"].Where(x => known_files.ContainsKey(x)).Select(x => x).ToList();
+                    var not_a_vsplugin_unknown = plugins["not_a_vsplugin"].Where(x => !known_files.ContainsKey(x)).Select(x => x).ToList();
+
+                    if (not_a_vsplugin_known.Count() > 0)
+                    {
+                        TextBlock_Diagnose.Text += "\n\n🙂 Identified non-VapourSynth Plugins: \n";
+                        TextBlock_Diagnose.Text += "------------------------------------------------------------\n";
+                        foreach (var p in not_a_vsplugin_known)
+                        {
+                            TextBlock_Diagnose.Text += "   " + p + "\t [belongs to " + known_files[p] + "]\n";
+                        }
+                    }
+                    if (not_a_vsplugin_unknown.Count() > 0)
+                    {
+                        TextBlock_Diagnose.Text += "\n\n🤨 Unidentified DLLs (maybe also Plugin dependencies?): \n";
+                        TextBlock_Diagnose.Text += "------------------------------------------------------------\n";
+                        foreach (var p in not_a_vsplugin_unknown)
+                        {
+                            TextBlock_Diagnose.Text += "   " + p + "\n";
+                        }
+                    }
+                    DiagPrintHelper(plugins, "duplicate_dlls", "\n\n🤨 These dlls exits in both folders: \n", true);
+
+                    //DiagPrintHelper(plugins, "not_a_vsplugin", "\n\n🤨 Notice - Probably a Plugin dependency (not a VS Plugin): \n");
+                    DiagPrintHelper(plugins, "no_problems", "\n\n👍 Successfully loaded Plugins: \n");
 
                 } else
                 {
@@ -616,7 +754,6 @@ namespace VSRepoGUI
             }
             
         }
-
     }
 
 

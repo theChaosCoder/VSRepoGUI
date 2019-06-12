@@ -578,6 +578,12 @@ namespace VSRepoGUI
             Process.Start("explorer.exe", vsrepo.GetPaths(Win64).Scripts);
         }
 
+        private void Hyperlink_Explorer(object sender, RoutedEventArgs e)
+        {
+            var hyperlink = sender as Hyperlink;
+            Process.Start("explorer.exe", hyperlink.NavigateUri.ToString());
+        }
+
         private void Hyperlink_Click_about(object sender, RoutedEventArgs e)
         {
             MessageBox.Show("Version " + version);
@@ -627,6 +633,7 @@ namespace VSRepoGUI
                 FlowDocument flowdoc = new FlowDocument();
                 Paragraph tb = new Paragraph();
 
+                richtextbox.IsDocumentEnabled = true;
                 richtextbox.IsReadOnly = true;
                 tb.FontFamily = new FontFamily("Lucida Console");
                 tb.Padding = new Thickness(8);
@@ -665,19 +672,15 @@ namespace VSRepoGUI
 
                 }
 
-                var version = await diag.GetVsVersion();
+                var version = await diag.GetVapoursynthVersion();
 
                 if(plugins != null)
                 {
                     var osname = (from x in new ManagementObjectSearcher("SELECT Caption FROM Win32_OperatingSystem").Get().Cast<ManagementObject>()
-                               select x.GetPropertyValue("Caption")).FirstOrDefault();
+                                  select x.GetPropertyValue("Caption")).FirstOrDefault();
 
                     ManagementObjectSearcher mos = new ManagementObjectSearcher("root\\CIMV2", "SELECT * FROM Win32_Processor");
-                    string cpu = "";
-                    foreach (ManagementObject mo in mos.Get())
-                    {
-                        cpu = mo["Name"].ToString();
-                    }
+                    string cpu = mos.Get().OfType<ManagementObject>().FirstOrDefault()["Name"].ToString();
 
                     Dictionary<string, string> known_files = new Dictionary<string, string>();
                     int count_unident_dll = 0;
@@ -708,7 +711,25 @@ namespace VSRepoGUI
                     if(PortableMode)
                         tb.Inlines.Add(string.Format("Plugin Path: {0}\n", vsrepo.GetPaths(Win64).Binaries));
                     else
-                        tb.Inlines.Add(string.Format("Plugin Paths: \n\t{0}\n\t{1}\n", vsrepo.GetPaths(Win64).Binaries, (string)localKey.OpenSubKey("SOFTWARE\\VapourSynth").GetValue("Plugins")));
+                    {
+                        Hyperlink link1 = new Hyperlink();
+                        Hyperlink link2 = new Hyperlink();
+                        link1.RequestNavigate += new System.Windows.Navigation.RequestNavigateEventHandler(Hyperlink_Explorer);
+                        link2.RequestNavigate += new System.Windows.Navigation.RequestNavigateEventHandler(Hyperlink_Explorer);
+                        link1.IsEnabled = link2.IsEnabled = true;
+                        link1.Inlines.Add(vsrepo.GetPaths(Win64).Binaries);
+                        link2.Inlines.Add((string)localKey.OpenSubKey("SOFTWARE\\VapourSynth").GetValue("Plugins"));
+                        link1.NavigateUri = new Uri(vsrepo.GetPaths(Win64).Binaries);
+                        link2.NavigateUri = new Uri((string)localKey.OpenSubKey("SOFTWARE\\VapourSynth").GetValue("Plugins"));
+
+                        tb.Inlines.Add("Plugin Paths: \n\t • ");
+                        tb.Inlines.Add(link1);
+                        tb.Inlines.Add("\n\t • ");
+                        tb.Inlines.Add(link2);
+                        tb.Inlines.Add("\n");
+                        //tb.Inlines.Add(string.Format("Plugin Paths: \n\t{0}\n\t{1}\n", vsrepo.GetPaths(Win64).Binaries, (string)localKey.OpenSubKey("SOFTWARE\\VapourSynth").GetValue("Plugins")));
+                    }
+                        
 
                     DiagPrintHelper(plugins, "wrong_arch", "\n\n🔥 Error 193 - You probably mixed 32/64 bit plugins: \n", tb, true);
                     //DiagPrintHelper(plugins, "missing_dependency", "\n\n🔥 Error 126 - A DLL dependency is probably missing: \n");

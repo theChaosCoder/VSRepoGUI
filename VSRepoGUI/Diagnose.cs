@@ -70,7 +70,7 @@ namespace VSRepoGUI
             return dllfiles;
         }
 
-        public async Task<string> GetVsVersion()
+        public async Task<string> GetVapoursynthVersion()
         {
             return await Task.Run(() => run_python("import vapoursynth as vs; core = vs.get_core(); print(core.version())"));
         }

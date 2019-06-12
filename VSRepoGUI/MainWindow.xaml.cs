@@ -669,7 +669,9 @@ namespace VSRepoGUI
                     }
 
                     plugins["duplicate_dlls"] = p1.Intersect(p2).ToList();
-
+                } else
+                {
+                    plugins["duplicate_dlls"] = new List<string>();
                 }
 
                 var version = await diag.GetVapoursynthVersion();
@@ -732,7 +734,6 @@ namespace VSRepoGUI
                         
 
                     DiagPrintHelper(plugins, "wrong_arch", "\n\n🔥 Error 193 - You probably mixed 32/64 bit plugins: \n", tb, true);
-                    //DiagPrintHelper(plugins, "missing_dependency", "\n\n🔥 Error 126 - A DLL dependency is probably missing: \n");
                     
                     if (plugins["missing_dependency"].Count() > 0)
                     {
@@ -775,7 +776,7 @@ namespace VSRepoGUI
                         if(hint_listpedeps)
                         {
                             tb.Inlines.Add("\nInstall listpedeps.exe via  'choco install pedeps'");
-                            tb.Inlines.Add("\nor copy listpedeps.exe next to vsrepogui.exe for detailed infomation about missing dependencies.");
+                            tb.Inlines.Add("\nor copy listpedeps.exe next to vsrepogui.exe for detailed information about missing dependencies.");
                             tb.Inlines.Add("\nDownload here: https://github.com/brechtsanders/pedeps/releases\n\n");
                         }
                     }

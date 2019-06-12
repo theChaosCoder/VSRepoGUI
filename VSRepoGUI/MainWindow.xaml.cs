@@ -38,7 +38,7 @@ namespace VSRepoGUI
 
         RegistryKey localKey;
 
-        public string version = "v0.7a";
+        public string version = "v0.8";
         public bool IsVsrepo { get; set; } = true; // else AVSRepo for Avisynth
         public string AppTitle { get; set; }
 

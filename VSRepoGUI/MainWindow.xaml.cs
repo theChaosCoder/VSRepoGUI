@@ -11,6 +11,8 @@ using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
 namespace VSRepoGUI
@@ -102,7 +104,7 @@ namespace VSRepoGUI
             }
             InitializeComponent();
 
-            //TabablzControl doesn't support hiding or collapsing Tabitems.
+            //TabablzControl doesn't support hiding or collapsing Tabitems. Hide "Diagnose Problems" (last) tab if we are in avisynth mode
             if (!IsVsrepo)
                 TabablzControl.Items.RemoveAt(TabablzControl.Items.Count - 1);
 
@@ -581,31 +583,66 @@ namespace VSRepoGUI
             MessageBox.Show("Version " + version);
         }
 
-        private void DiagPrintHelper(Dictionary<string, List<string>> plugins, string id, string errmsg, bool fullpath = false)
+
+
+        /// <summary>
+        /// Print a "block" of plugins, helper function
+        /// </summary>
+        /// <param name="plugins"></param>
+        /// <param name="id"></param>
+        /// <param name="errmsg"></param>
+        /// <param name="tb"></param>
+        /// <param name="fullpath"></param>
+        private void DiagPrintHelper(Dictionary<string, List<string>> plugins, string id, string errmsg, Paragraph tb, bool fullpath = false)
         {
             if (plugins[id].Count() > 0)
             {
-                TextBlock_Diagnose.Text += errmsg;
-                TextBlock_Diagnose.Text += "------------------------------------------------------------\n";
+                //tb.Text += errmsg;
+                tb.Inlines.Add(new Run(errmsg) { FontSize = 14 });
+                tb.Inlines.Add(new Run("------------------------------------------------------------\n") { Foreground = Brushes.SlateBlue });
                 foreach (var p in plugins[id])
                 {
                     if(fullpath)
-                        TextBlock_Diagnose.Text += "   " + p + "\n";
+                    {
+                        tb.Inlines.Add("   ");
+                        if (Path.IsPathRooted(p))
+                            tb.Inlines.Add(new Run(Path.GetDirectoryName(p) + @"\") { Foreground = Brushes.Silver });
+                        tb.Inlines.Add(Path.GetFileName(p) + "\n");
+                    }
                     else
-                        TextBlock_Diagnose.Text += "   " + Path.GetFileName(p) + "\n";
+                    {
+                        tb.Inlines.Add("   " + Path.GetFileName(p) + "\n");
+                    }
                 }
             }
         }
+
+
         private async void TabablzControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (DiagnoseTab.IsSelected)
             {
+                // Textoutput controls init
+                RichTextBox richtextbox = new RichTextBox();
+                FlowDocument flowdoc = new FlowDocument();
+                Paragraph tb = new Paragraph();
+
+                richtextbox.IsReadOnly = true;
+                tb.FontFamily = new FontFamily("Lucida Console");
+                tb.Padding = new Thickness(8);
+
+                flowdoc.Blocks.Add(tb);
+                richtextbox.Document = flowdoc;
+                //tb.TextWrapping = TextWrapping.Wrap;
+
+
                 // http://www.vapoursynth.com/doc/autoloading.html#windows
                 // 1. <AppData>\VapourSynth\plugins64
                 // 2. <VapourSynth path>\core64\plugins
                 // 3. <VapourSynth path>\plugins64
                 // vsrepo returns (always?) the path of the AppData folder no 1.
                 // User Plugins in core64 are bad.
+
                 AppIsWorking(true);
                 var diag = new Diagnose(vsrepo.python_bin);
                 Dictionary<string, List<string>> plugins = await diag.CheckPluginsAsync(vsrepo.GetPaths(Win64).Binaries);
@@ -653,33 +690,33 @@ namespace VSRepoGUI
                     }
 
 
-                    TextBlock_Diagnose.Text = @"/!\ Only Plugins and no Scripts are tested /!\";
-                    TextBlock_Diagnose.Text += "\n" + version;
-                    TextBlock_Diagnose.Text += "\nOS: " + osname != null ? osname.ToString() : "Unknown";
-                    TextBlock_Diagnose.Text += "\nIs 64Bit OS?: " + System.Environment.Is64BitOperatingSystem;
-                    TextBlock_Diagnose.Text += "\nCPU: " + cpu;
-                    TextBlock_Diagnose.Text += "\nCPU Cores: " + System.Environment.ProcessorCount;
+                    tb.Inlines.Add(@"/!\ Only Plugins and no Scripts are tested /!\");
+                    tb.Inlines.Add("\n" + version);
+                    tb.Inlines.Add("\nOS: " + (osname != null ? osname.ToString() : "Unknown"));
+                    tb.Inlines.Add("\nIs 64Bit OS?: " + System.Environment.Is64BitOperatingSystem);
+                    tb.Inlines.Add("\nCPU: " + cpu);
+                    tb.Inlines.Add("\nCPU Cores: " + System.Environment.ProcessorCount);
 
-                    TextBlock_Diagnose.Text += "\n\n============================================================\n";
+                    tb.Inlines.Add("\n\n============================================================\n");
 
-                    TextBlock_Diagnose.Text += string.Format("\nChecked Plugins: {0}, Notices: {1}, Errors: {2}\n\n",
+                    tb.Inlines.Add(new Run(string.Format("\nChecked Plugins: {0}, Notices: {1}, Errors: {2}\n\n",
                              plugins.Values.SelectMany(x => x).Count(),
                             //plugins["no_problems"].Count() + plugins["not_a_vsplugin"].Count() + plugins["missing_dependency"].Count() + plugins["wrong_arch"].Count() + plugins["others"].Count(),
                             count_unident_dll + plugins["duplicate_dlls"].Count(),
-                            plugins["wrong_arch"].Count() + plugins["missing_dependency"].Count() + plugins["others"].Count() + plugins["namespace"].Count());
+                            plugins["wrong_arch"].Count() + plugins["missing_dependency"].Count() + plugins["others"].Count() + plugins["namespace"].Count())) { Foreground = Brushes.DarkOrange });
 
                     if(PortableMode)
-                        TextBlock_Diagnose.Text += string.Format("Plugin Path: {0}\n", vsrepo.GetPaths(Win64).Binaries);
+                        tb.Inlines.Add(string.Format("Plugin Path: {0}\n", vsrepo.GetPaths(Win64).Binaries));
                     else
-                        TextBlock_Diagnose.Text += string.Format("Plugin Paths: \n\t{0}\n\t{1}\n", vsrepo.GetPaths(Win64).Binaries, (string)localKey.OpenSubKey("SOFTWARE\\VapourSynth").GetValue("Plugins"));
+                        tb.Inlines.Add(string.Format("Plugin Paths: \n\t{0}\n\t{1}\n", vsrepo.GetPaths(Win64).Binaries, (string)localKey.OpenSubKey("SOFTWARE\\VapourSynth").GetValue("Plugins")));
 
-                    DiagPrintHelper(plugins, "wrong_arch", "\n\n🔥 Error 193 - You probably mixed 32/64 bit plugins: \n", true);
+                    DiagPrintHelper(plugins, "wrong_arch", "\n\n🔥 Error 193 - You probably mixed 32/64 bit plugins: \n", tb, true);
                     //DiagPrintHelper(plugins, "missing_dependency", "\n\n🔥 Error 126 - A DLL dependency is probably missing: \n");
                     
                     if (plugins["missing_dependency"].Count() > 0)
                     {
-                        TextBlock_Diagnose.Text += "\n\n🔥 Error 126 - A DLL dependency is probably missing: \n";
-                        TextBlock_Diagnose.Text += "------------------------------------------------------------\n";
+                        tb.Inlines.Add(new Run("\n\n🔥 Error 126 - A DLL dependency is probably missing: \n") { FontSize = 14 });
+                        tb.Inlines.Add(new Run("------------------------------------------------------------\n") { Foreground = Brushes.SlateBlue });
                         bool hint_listpedeps = false;
                         foreach (var p in plugins["missing_dependency"])
                         {
@@ -695,61 +732,75 @@ namespace VSRepoGUI
                             
                             if(file_dependencies != null)
                             {
-                                TextBlock_Diagnose.Text += "   " + p + "\n";
-                                TextBlock_Diagnose.Text += "   \t requires following dependencies (one of these could be missing):\n\n";
+                                tb.Inlines.Add("   ");
+                                if (Path.IsPathRooted(p))
+                                    tb.Inlines.Add(new Run(Path.GetDirectoryName(p) + @"\") { Foreground = Brushes.Silver });
+                                tb.Inlines.Add(Path.GetFileName(p) + "\n");
+                                tb.Inlines.Add("   \t requires following dependencies (one of these could be missing):\n\n");
 
                                 foreach (var dependency in file_dependencies.Imports)
                                 {
-                                    TextBlock_Diagnose.Text += "   \t - " + dependency + "\n";
+                                    tb.Inlines.Add("   \t - " + dependency + "\n");
                                 }
-                                TextBlock_Diagnose.Text += "\n";
+                                tb.Inlines.Add("\n");
                             } else
                             {
-                                TextBlock_Diagnose.Text += "   " + p + "\n";
+                                tb.Inlines.Add("   ");
+                                if (Path.IsPathRooted(p))
+                                    tb.Inlines.Add(new Run(Path.GetDirectoryName(p) + @"\") { Foreground = Brushes.Silver });
+                                tb.Inlines.Add(Path.GetFileName(p) + "\n");
                             }
                         }
                         if(hint_listpedeps)
                         {
-                            TextBlock_Diagnose.Text += "\nInstall listpedeps.exe via  'choco install pedeps'";
-                            TextBlock_Diagnose.Text += "\nor copy listpedeps.exe next to vsrepogui.exe for detailed infomation about missing dependencies.";
-                            TextBlock_Diagnose.Text += "\nDownload here: https://github.com/brechtsanders/pedeps/releases\n\n";
+                            tb.Inlines.Add("\nInstall listpedeps.exe via  'choco install pedeps'");
+                            tb.Inlines.Add("\nor copy listpedeps.exe next to vsrepogui.exe for detailed infomation about missing dependencies.");
+                            tb.Inlines.Add("\nDownload here: https://github.com/brechtsanders/pedeps/releases\n\n");
                         }
                     }
 
-                    DiagPrintHelper(plugins, "namespace", "\n\n🔥 Namespace already populated, therefore it failed to load: \n", true);
-                    DiagPrintHelper(plugins, "others", "\n\n🔥 Error unknown: \n", true);
+                    DiagPrintHelper(plugins, "namespace", "\n\n🔥 Namespace already populated, therefore it failed to load: \n", tb, true);
+                    DiagPrintHelper(plugins, "others", "\n\n🔥 Error unknown: \n", tb, true);
 
                     var not_a_vsplugin_known = plugins["not_a_vsplugin"].Where(x => known_files.ContainsKey(x)).Select(x => x).ToList();
                     var not_a_vsplugin_unknown = plugins["not_a_vsplugin"].Where(x => !known_files.ContainsKey(x)).Select(x => x).ToList();
 
                     if (not_a_vsplugin_known.Count() > 0)
                     {
-                        TextBlock_Diagnose.Text += "\n\n🙂 Identified non-VapourSynth Plugins: \n";
-                        TextBlock_Diagnose.Text += "------------------------------------------------------------\n";
+                        tb.Inlines.Add(new Run("\n\n🙂 Identified non-VapourSynth Plugins: \n") { FontSize = 14 });
+                        tb.Inlines.Add(new Run("------------------------------------------------------------\n") { Foreground = Brushes.SlateBlue });
                         foreach (var p in not_a_vsplugin_known)
                         {
-                            TextBlock_Diagnose.Text += "   " + p + "\t [belongs to " + known_files[p] + "]\n";
+                            tb.Inlines.Add("   ");
+                            if (Path.IsPathRooted(p))
+                                tb.Inlines.Add(new Run(Path.GetDirectoryName(p) + @"\") { Foreground = Brushes.Silver });
+                            tb.Inlines.Add(Path.GetFileName(p) + "\t");
+                            tb.Inlines.Add(new Run("[belongs to " + known_files[p] + "]\n") { Foreground = Brushes.Orange });
                         }
                     }
                     if (not_a_vsplugin_unknown.Count() > 0)
                     {
-                        TextBlock_Diagnose.Text += "\n\n🤨 Unidentified DLLs (maybe also Plugin dependencies?): \n";
-                        TextBlock_Diagnose.Text += "------------------------------------------------------------\n";
+                        tb.Inlines.Add(new Run("\n\n🤨 Unidentified DLLs (maybe also Plugin dependencies?): \n") { FontSize = 14 });
+                        tb.Inlines.Add(new Run("------------------------------------------------------------\n") { Foreground = Brushes.SlateBlue });
                         foreach (var p in not_a_vsplugin_unknown)
                         {
-                            TextBlock_Diagnose.Text += "   " + p + "\n";
+                            tb.Inlines.Add("   ");
+                            if (Path.IsPathRooted(p))
+                                tb.Inlines.Add(new Run(Path.GetDirectoryName(p) + @"\") { Foreground = Brushes.Silver });
+                            tb.Inlines.Add(Path.GetFileName(p) + "\n");
                         }
                     }
-                    DiagPrintHelper(plugins, "duplicate_dlls", "\n\n🤨 These dlls exits in both folders: \n", true);
+                    DiagPrintHelper(plugins, "duplicate_dlls", "\n\n🤨 These dlls exits in both folders: \n", tb, true);
 
                     //DiagPrintHelper(plugins, "not_a_vsplugin", "\n\n🤨 Notice - Probably a Plugin dependency (not a VS Plugin): \n");
-                    DiagPrintHelper(plugins, "no_problems", "\n\n👍 Successfully loaded Plugins: \n");
+                    DiagPrintHelper(plugins, "no_problems", "\n\n👍 Successfully loaded Plugins: \n", tb, false);
 
                 } else
                 {
-                    TextBlock_Diagnose.Text = "Some error occured";
+                    tb.Inlines.Add("Some error occured");
                 }
 
+                ScrollViewer.Content = richtextbox;
                 AppIsWorking(false);
             }
             

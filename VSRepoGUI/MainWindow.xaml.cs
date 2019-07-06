@@ -49,7 +49,7 @@ namespace VSRepoGUI
         public bool Win64
         {
             get { return _win64; }
-            set { _win64 = value; vsrepo.SetArch(_win64); CurrentPluginPath = vsrepo.paths[_win64].Binaries; CurrentScriptPath = vsrepo.paths[_win64].Scripts; }
+            set { _win64 = value; }
         }
 
         public class VsPlugins : INotifyPropertyChanged
@@ -121,7 +121,8 @@ namespace VSRepoGUI
             {
                 AppTitle = "AVSRepoGUI - A simple plugin manager for AviSynth | " + version;
                 InitAvisynth();
-            }                
+            }
+            Win64 = Environment.Is64BitOperatingSystem; // triggers checkbox changed event
             //var wizardDialog = new SettingsWindow().ShowDialog();
         }
 
@@ -148,7 +149,7 @@ namespace VSRepoGUI
                 AppIsWorking(true);
                 vsrepo.SetArch(Environment.Is64BitOperatingSystem);
                 vspackages_file = vsrepo.GetPaths(Environment.Is64BitOperatingSystem).Definitions;
-                Win64 = Environment.Is64BitOperatingSystem;
+                //Win64 = Environment.Is64BitOperatingSystem;
             }
             else // Portable mode, valid vsrepogui.json found
             {
@@ -163,7 +164,7 @@ namespace VSRepoGUI
                 vsrepo.SetPaths(false, new Paths() { Binaries = settings.Win32.Binaries, Scripts = settings.Win32.Scripts, Definitions = vspackages_file });
 
                 // Triggering  Win64 is now safe
-                Win64 = Environment.Is64BitOperatingSystem;
+                //Win64 = Environment.Is64BitOperatingSystem;
             }
 
             try
@@ -181,21 +182,6 @@ namespace VSRepoGUI
                 MessageBox.Show("Could not read (or download) avspackages.json.");
                 System.Environment.Exit(1);
             }
-
-            var plugins_installed = vsrepo.GetInstalled();
-
-            // Set Plugin status (installed, not installed, update available etc.)
-            foreach (var plugin in plugins_installed)
-            {
-                var index = Array.FindIndex(Plugins.All, row => row.Identifier == plugin.Key);
-                if (index >= 0) //-1 if not found
-                {
-                    Plugins.All[index].Status = plugin.Value.Value;
-                    Plugins.All[index].Releases[0].VersionLocal = plugin.Value.Key;
-                }
-            }
-            FilterPlugins(Plugins.Full);
-            AppIsWorking(false);
         }
 
 
@@ -285,7 +271,7 @@ namespace VSRepoGUI
                 AppIsWorking(true);
                 vsrepo.SetArch(Environment.Is64BitOperatingSystem);
                 vspackages_file = vsrepo.GetPaths(Environment.Is64BitOperatingSystem).Definitions;
-                Win64 = Environment.Is64BitOperatingSystem;
+                //Win64 = Environment.Is64BitOperatingSystem;
                 Console.WriteLine("vspackages_file: " + vsrepo_file);
             }
             else // Portable mode, valid vsrepogui.json found
@@ -301,7 +287,7 @@ namespace VSRepoGUI
                 vsrepo.SetPaths(false, new Paths() { Binaries = settings.Win32.Binaries, Scripts = settings.Win32.Scripts, Definitions = vspackages_file });
 
                 // Triggering  Win64 is now safe
-                Win64 = Environment.Is64BitOperatingSystem;
+                //Win64 = Environment.Is64BitOperatingSystem;
             }
 
             
@@ -320,47 +306,7 @@ namespace VSRepoGUI
                 MessageBox.Show("Could not read (or download) vspackages.json.");
                 System.Environment.Exit(1);
             }
-
-            var plugins_installed = vsrepo.GetInstalled();
-
-            // Set Plugin status (installed, not installed, update available etc.)
-            foreach (var plugin in plugins_installed)
-            {
-                var index = Array.FindIndex(Plugins.All, row => row.Identifier == plugin.Key);
-                if (index >= 0) //-1 if not found
-                {
-                    Plugins.All[index].Status = plugin.Value.Value;
-                    Plugins.All[index].Releases[0].VersionLocal = plugin.Value.Key;
-                }
-            }
-
-            // Build dll filename <-> Plugin name list
-            foreach (Package plugin in Plugins.All)
-            {
-                foreach(var release in plugin.Releases)
-                {
-                    if (release.Win32 != null)
-                    {
-                        foreach (var w in release.Win32.Files)
-                        {
-                            if (!plugins_dll_parents.ContainsKey(w.Key))
-                                plugins_dll_parents.Add(w.Key, plugin.Name);
-                        }
-                    }
-                    if (release.Win64 != null)
-                    {
-                        foreach (var w in release.Win64.Files)
-                        {
-                            //string[] hash_parent = { w.Value[1], plugin.Name };
-                            if (!plugins_dll_parents.ContainsKey(w.Key))
-                                plugins_dll_parents.Add(w.Key, plugin.Name);
-                        }
-                    } 
-                }
-            }
-
-            FilterPlugins(Plugins.Full);
-            AppIsWorking(false);
+            
         }
 
         private bool PythonIsAvailable()
@@ -487,7 +433,6 @@ namespace VSRepoGUI
                 }
             }
             Plugins.Full = _plugins;
-            Plugins.All = _plugins;
             FilterPlugins(Plugins.Full);
         }
 
@@ -561,21 +506,27 @@ namespace VSRepoGUI
             textbox.Clear();
         }
 
-        private async void CheckBox_Win64_Checked(object sender, RoutedEventArgs e)
+        private void CheckBox_Win64_Checked(object sender, RoutedEventArgs e)
+        {
+            CheckBoxToggleHelper(sender as CheckBox);
+        }
+
+        private void CheckBox_Win64_Unchecked(object sender, RoutedEventArgs e)
+        {
+            CheckBoxToggleHelper(sender as CheckBox);
+        }
+
+        private async void CheckBoxToggleHelper(CheckBox c)
         {
             AppIsWorking(true);
-            Win64 = true;
+            Win64 = c.IsChecked.Value;
+            vsrepo.SetArch(Win64);
+            CurrentPluginPath = vsrepo.paths[Win64].Binaries;
+            CurrentScriptPath = vsrepo.paths[Win64].Scripts;
             await ReloadPluginsAsync();
             AppIsWorking(false);
         }
 
-        private async void CheckBox_Win64_Unchecked(object sender, RoutedEventArgs e)
-        {
-            AppIsWorking(true);
-            Win64 = false;
-            await ReloadPluginsAsync();
-            AppIsWorking(false);
-        }
 
         private void Hyperlink_Click(object sender, RoutedEventArgs e)
         {

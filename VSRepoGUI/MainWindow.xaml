@@ -130,7 +130,7 @@
                 <!--  <TabItem.Header>
                         <TextBlock Text="{Binding Plugins.Installed.Count, StringFormat='Installed ({0})', Mode=OneWay}" Foreground="White" FontFamily="Segoe UI" />
                     </TabItem.Header>-->
-                <DataGrid Grid.Row="1" Grid.Column="0" x:Name="dataGridAvailable"  AutoGenerateColumns="False" AlternationCount="2" AlternatingRowBackground="WhiteSmoke" IsReadOnly="True" ItemsSource="{Binding Plugins.Installed}">
+                <DataGrid Grid.Row="1" Grid.Column="0" x:Name="dataGridAvailable"  AutoGenerateColumns="False" AlternationCount="2" AlternatingRowBackground="WhiteSmoke" IsReadOnly="True" ItemsSource="{Binding Plugins.Installed}" RowHeight="57">
                     <DataGrid.Columns>
 
                         <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="1.2*" SortDirection="Ascending"/>

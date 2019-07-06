@@ -36,7 +36,10 @@ namespace VSRepoGUI
         public string consolestd { get; set; }
         public List<string> consolestdL = new List<string>();
 
-        RegistryKey localKey;
+        RegistryKey reg_machine_key;
+        RegistryKey reg_user_key;
+        string reg_vs_path;
+        string reg_vs_plugins;
 
         public string version = "v0.8";
         public bool IsVsrepo { get; set; } = true; // else AVSRepo for Avisynth
@@ -107,21 +110,22 @@ namespace VSRepoGUI
             //TabablzControl doesn't support hiding or collapsing Tabitems. Hide "Diagnose Problems" (last) tab if we are in avisynth mode
             if (!IsVsrepo)
                 TabablzControl.Items.RemoveAt(TabablzControl.Items.Count - 1);
-
-            if (IsVsrepo)
-                AppTitle = "VSRepoGUI - A simple plugin manager for VapourSynth | " + version;
-            else
-                AppTitle = "AVSRepoGUI - A simple plugin manager for AviSynth | " + version;
-                
+            
             AddChatter(vsrepo);
             if (IsVsrepo)
-                Init();
+            {
+                AppTitle = "VSRepoGUI - A simple plugin manager for VapourSynth | " + version;
+                InitVapoursynth();
+            }
             else
-                InitAvs();
+            {
+                AppTitle = "AVSRepoGUI - A simple plugin manager for AviSynth | " + version;
+                InitAvisynth();
+            }                
             //var wizardDialog = new SettingsWindow().ShowDialog();
         }
 
-        private void InitAvs()
+        private void InitAvisynth()
         {
             ImageHeader.Source = new BitmapImage(new Uri("pack://application:,,,/Resources/avsrepo_logo.png"));
             Link_avsdoom9.Visibility = Visibility.Visible;
@@ -195,7 +199,7 @@ namespace VSRepoGUI
         }
 
 
-        private void Init()
+        private void InitVapoursynth()
         {
             var settings = new Settings().LoadLocalFile();
 
@@ -207,9 +211,14 @@ namespace VSRepoGUI
 
 
             if (Environment.Is64BitOperatingSystem)
-                localKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
-            else
-                localKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry32);
+            {
+                reg_machine_key = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
+                reg_user_key = RegistryKey.OpenBaseKey(RegistryHive.CurrentUser, RegistryView.Registry64);
+            }                
+            else {
+                reg_machine_key = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry32);
+                reg_user_key = RegistryKey.OpenBaseKey(RegistryHive.CurrentUser, RegistryView.Registry32);
+            }
 
 
             //check if python works
@@ -220,22 +229,42 @@ namespace VSRepoGUI
             }
             if(settings is null)
             {
-                string reg_vs_path = null;
                 try
                 {
-                    reg_vs_path = (string)localKey.OpenSubKey("SOFTWARE\\VapourSynth").GetValue("Path");
+                    reg_vs_path = (string)reg_machine_key.OpenSubKey("SOFTWARE\\VapourSynth").GetValue("Path");
+                    reg_vs_plugins = (string)reg_machine_key.OpenSubKey("SOFTWARE\\VapourSynth").GetValue("Plugins");
                 }
                 catch
                 {
-                    Console.WriteLine("Failed to read reg key");
-                    // MessageBox.Show("Can not find your VapourSynth installation. You can create a vsrepogui.json file for portable mode.");
-                    MessageBox.Show("Can not find your VapourSynth installation.");
-                    System.Environment.Exit(1);
+                    Console.WriteLine("Failed to read local machine reg key");
                 }
 
+                // So maybe it is a per user installation
                 if (String.IsNullOrEmpty(reg_vs_path))
                 {
-                    MessageBox.Show(@"Path entry is empty or null in HKEY_LOCAL_MACHINE\SOFTWARE\VapourSynth. Your VS installation is broken or incomplete.");
+                    try
+                    {
+                        if (Environment.Is64BitOperatingSystem) {
+                            reg_vs_path = (string)reg_user_key.OpenSubKey("SOFTWARE\\VapourSynth-64").GetValue("Path");
+                            reg_vs_plugins = (string)reg_user_key.OpenSubKey("SOFTWARE\\VapourSynth-64").GetValue("Plugins");
+                        }
+                        else {
+                            reg_vs_path = (string)reg_user_key.OpenSubKey("SOFTWARE\\VapourSynth-32").GetValue("Path");
+                            reg_vs_plugins = (string)reg_user_key.OpenSubKey("SOFTWARE\\VapourSynth-32").GetValue("Plugins");
+                        }
+                    }
+                    catch
+                    {
+                        Console.WriteLine("Failed to read user reg key");
+                        // MessageBox.Show("Can not find your VapourSynth installation. You can create a vsrepogui.json file for portable mode.");
+                        MessageBox.Show("Can not find your VapourSynth installation.");
+                        System.Environment.Exit(1);
+                    }
+                }
+                
+                if (String.IsNullOrEmpty(reg_vs_path))
+                {
+                    MessageBox.Show(@"Path entry is empty or null in \SOFTWARE\VapourSynth. Your VS installation is broken or incomplete."); // TODO show also if is per user install or not
                     System.Environment.Exit(1);
                 }
 
@@ -336,12 +365,11 @@ namespace VSRepoGUI
 
         private bool PythonIsAvailable()
         {
-
             //In PythonPath we believe
             string reg_value = null;
             try
             {
-                reg_value = (string)localKey.OpenSubKey("SOFTWARE\\VapourSynth").GetValue("PythonPath");
+                reg_value = (string)reg_machine_key.OpenSubKey("SOFTWARE\\VapourSynth").GetValue("PythonPath");
             }
             catch
             {
@@ -655,7 +683,7 @@ namespace VSRepoGUI
                 Dictionary<string, List<string>> plugins = await diag.CheckPluginsAsync(vsrepo.GetPaths(Win64).Binaries);
                 if (!PortableMode)
                 {
-                    Dictionary<string, List<string>> plugins64folder = await diag.CheckPluginsAsync((string)localKey.OpenSubKey("SOFTWARE\\VapourSynth").GetValue("Plugins"));
+                    Dictionary<string, List<string>> plugins64folder = await diag.CheckPluginsAsync(reg_vs_plugins);
 
                     //Check for duplicate dll files in both folders: appdata\plugins and vapoursynth\plugins
                     var p1 = plugins.Values.SelectMany(x => x.Select(p => Path.GetFileName(p))).ToList();
@@ -720,18 +748,18 @@ namespace VSRepoGUI
                         link2.RequestNavigate += new System.Windows.Navigation.RequestNavigateEventHandler(Hyperlink_Explorer);
                         link1.IsEnabled = link2.IsEnabled = true;
                         link1.Inlines.Add(vsrepo.GetPaths(Win64).Binaries);
-                        link2.Inlines.Add((string)localKey.OpenSubKey("SOFTWARE\\VapourSynth").GetValue("Plugins"));
+                        link2.Inlines.Add(reg_vs_plugins);
                         link1.NavigateUri = new Uri(vsrepo.GetPaths(Win64).Binaries);
-                        link2.NavigateUri = new Uri((string)localKey.OpenSubKey("SOFTWARE\\VapourSynth").GetValue("Plugins"));
+                        link2.NavigateUri = new Uri(reg_vs_plugins);
 
                         tb.Inlines.Add("Plugin Paths: \n\t • ");
                         tb.Inlines.Add(link1);
                         tb.Inlines.Add("\n\t • ");
                         tb.Inlines.Add(link2);
                         tb.Inlines.Add("\n");
-                        //tb.Inlines.Add(string.Format("Plugin Paths: \n\t{0}\n\t{1}\n", vsrepo.GetPaths(Win64).Binaries, (string)localKey.OpenSubKey("SOFTWARE\\VapourSynth").GetValue("Plugins")));
+                        //tb.Inlines.Add(string.Format("Plugin Paths: \n\t{0}\n\t{1}\n", vsrepo.GetPaths(Win64).Binaries, reg_vs_plugins));
                     }
-                        
+
 
                     DiagPrintHelper(plugins, "wrong_arch", "\n\n🔥 Error 193 - You probably mixed 32/64 bit plugins: \n", tb, true);
                     

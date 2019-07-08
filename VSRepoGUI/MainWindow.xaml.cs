@@ -27,6 +27,7 @@ namespace VSRepoGUI
         public VsPlugins Plugins { get; set; }
         public Dictionary<string, string> plugins_dll_parents = new Dictionary<string, string>();
         public VsApi vsrepo;
+        public VsRegistryHelper vsregistry = new VsRegistryHelper();
         public string CurrentPluginPath  { get; set; }
         public string CurrentScriptPath  { get; set; }
         public bool IsNotWorking { get; set; } = true;
@@ -35,11 +36,6 @@ namespace VSRepoGUI
         public bool HideInstalled { get; set; }
         public string consolestd { get; set; }
         public List<string> consolestdL = new List<string>();
-
-        RegistryKey reg_machine_key;
-        RegistryKey reg_user_key;
-        string reg_vs_path;
-        string reg_vs_plugins;
 
         public string version = "v0.8";
         public bool IsVsrepo { get; set; } = true; // else AVSRepo for Avisynth
@@ -97,7 +93,7 @@ namespace VSRepoGUI
         {
             vsrepo = new VsApi(IsVsrepo);
             Plugins = new VsPlugins();
-            
+            vsregistry.ReadAllVsRegistryInfos();
 
             //High dpi 288 fix so it won't cut off the title bar on start
             if (Height > SystemParameters.WorkArea.Height)
@@ -148,6 +144,8 @@ namespace VSRepoGUI
             {
                 AppIsWorking(true);
                 vsrepo.SetArch(Environment.Is64BitOperatingSystem);
+                //Trigger GetPaths for 32/64 bit, they are cached in VsApi class anyway
+                _ = vsrepo.GetPaths(true).Definitions; _ = vsrepo.GetPaths(false).Definitions;
                 vspackages_file = vsrepo.GetPaths(Environment.Is64BitOperatingSystem).Definitions;
                 //Win64 = Environment.Is64BitOperatingSystem;
             }
@@ -193,70 +191,41 @@ namespace VSRepoGUI
             if (args.Length > 1)
             {
                 vsrepo.python_bin = args[1];
-            }
-
-
-            if (Environment.Is64BitOperatingSystem)
+            } else
             {
-                reg_machine_key = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
-                reg_user_key = RegistryKey.OpenBaseKey(RegistryHive.CurrentUser, RegistryView.Registry64);
-            }                
-            else {
-                reg_machine_key = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry32);
-                reg_user_key = RegistryKey.OpenBaseKey(RegistryHive.CurrentUser, RegistryView.Registry32);
-            }
-
-
-            //check if python works
-            if (!PythonIsAvailable())
-            {
-                MessageBox.Show(@"It seems that Python is not installed or not set in your PATH variable. Add Python to PATH or call like this 'VSRepoGui.exe path\to\python.exe'");
-                System.Environment.Exit(1);
-            }
-            if(settings is null)
-            {
-                try
+                //check if python is in PATH first
+                if (IsPythonCallable())
                 {
-                    reg_vs_path = (string)reg_machine_key.OpenSubKey("SOFTWARE\\VapourSynth").GetValue("Path");
-                    reg_vs_plugins = (string)reg_machine_key.OpenSubKey("SOFTWARE\\VapourSynth").GetValue("Plugins");
+                    vsrepo.python_bin = GetPythonLocation("python.exe");
+                    _ = vsregistry.SetCurrentVsInstallation(vsrepo.python_bin);
                 }
-                catch
+                else //is not in PATH
                 {
-                    Console.WriteLine("Failed to read local machine reg key");
-                }
-
-                // So maybe it is a per user installation
-                if (String.IsNullOrEmpty(reg_vs_path))
-                {
-                    try
+                    // Get PythonPath from VapourSynth registry and test if it's callable
+                    var pybin = GetPythonLocation(vsregistry.GetAvailablePythonPath());
+                    
+                    if (!String.IsNullOrEmpty(pybin))
                     {
-                        if (Environment.Is64BitOperatingSystem) {
-                            reg_vs_path = (string)reg_user_key.OpenSubKey("SOFTWARE\\VapourSynth-64").GetValue("Path");
-                            reg_vs_plugins = (string)reg_user_key.OpenSubKey("SOFTWARE\\VapourSynth-64").GetValue("Plugins");
-                        }
-                        else {
-                            reg_vs_path = (string)reg_user_key.OpenSubKey("SOFTWARE\\VapourSynth-32").GetValue("Path");
-                            reg_vs_plugins = (string)reg_user_key.OpenSubKey("SOFTWARE\\VapourSynth-32").GetValue("Plugins");
-                        }
-                    }
-                    catch
+                        vsrepo.python_bin = pybin;
+                    } else
                     {
-                        Console.WriteLine("Failed to read user reg key");
-                        // MessageBox.Show("Can not find your VapourSynth installation. You can create a vsrepogui.json file for portable mode.");
-                        MessageBox.Show("Can not find your VapourSynth installation.");
+                        MessageBox.Show(@"It seems that Python is not installed or not set in your PATH variable. Add Python to PATH or call like this: 'VSRepoGui.exe path\to\python.exe'");
                         System.Environment.Exit(1);
                     }
+                    
                 }
-                
-                if (String.IsNullOrEmpty(reg_vs_path))
+            }
+
+            if(settings is null)
+            {
+                if(vsregistry.Registry.Count() == 0)
                 {
-                    MessageBox.Show(@"Path entry is empty or null in \SOFTWARE\VapourSynth. Your VS installation is broken or incomplete."); // TODO show also if is per user install or not
+                    // MessageBox.Show("Can not find your VapourSynth installation. You can create a vsrepogui.json file for portable mode.");
+                    MessageBox.Show("Can not find your VapourSynth installation(s).");
                     System.Environment.Exit(1);
                 }
-
-                var vsrepo_file = reg_vs_path + "\\vsrepo\\vsrepo.py";
-
-
+                 
+                var vsrepo_file = vsregistry.GetCurrentRegPath() + "\\vsrepo\\vsrepo.py";
                 Console.WriteLine("vsrepo_file: " + vsrepo_file);
 
                 if (File.Exists(vsrepo_file))
@@ -265,11 +234,13 @@ namespace VSRepoGUI
                 }
                 else
                 {
-                    MessageBox.Show("Found VS installation in " + reg_vs_path + " but no vsrepo.py file in " + vsrepo_file);
+                    MessageBox.Show("Found VS installation in " + vsregistry.GetCurrentRegPath() + " but no vsrepo.py file in " + vsrepo_file + ". Make sure you have at least version R45 of VapourSynth installed.");
                     System.Environment.Exit(1);
                 }
                 AppIsWorking(true);
                 vsrepo.SetArch(Environment.Is64BitOperatingSystem);
+                //Trigger GetPaths for 32/64 bit, they are cached in VsApi class anyway
+                _ = vsrepo.GetPaths(true).Definitions; _ = vsrepo.GetPaths(false).Definitions;
                 vspackages_file = vsrepo.GetPaths(Environment.Is64BitOperatingSystem).Definitions;
                 //Win64 = Environment.Is64BitOperatingSystem;
                 Console.WriteLine("vspackages_file: " + vsrepo_file);
@@ -309,28 +280,32 @@ namespace VSRepoGUI
             
         }
 
-        private bool PythonIsAvailable()
-        {
-            //In PythonPath we believe
-            string reg_value = null;
-            try
-            {
-                reg_value = (string)reg_machine_key.OpenSubKey("SOFTWARE\\VapourSynth").GetValue("PythonPath");
-            }
-            catch
-            {
-                Console.WriteLine("Failed to read reg key");
-            }
-            if (!String.IsNullOrEmpty(reg_value))
-            {
-                vsrepo.python_bin = reg_value + @"\python.exe";
-                return true;
-            }
+         private string GetPythonLocation(string python_bin)
+         {
+             string cmd = "import sys; print(sys.executable)";
+             ProcessStartInfo start = new ProcessStartInfo();
+             start.FileName = python_bin;
+             start.Arguments = string.Format("-c \"{0}\"", cmd);
+             start.UseShellExecute = false;// Do not use OS shell
+             start.CreateNoWindow = true; // We don't need new window
+             start.RedirectStandardOutput = true;// Any output, generated by application will be redirected back
+             start.RedirectStandardError = false; // Any error in standard output will be redirected back (for example exceptions)
+             using (Process process = Process.Start(start))
+             {
+                 using (StreamReader reader = process.StandardOutput)
+                 {
+                     string result = reader.ReadToEnd();
+                     return result.Trim();
+                 }
+             }
+         }
 
+        private bool IsPythonCallable()
+        {
             try
             {
                 Process p = new Process();
-                p.StartInfo.FileName = vsrepo.python_bin;
+                p.StartInfo.FileName = "python.exe";
                 p.StartInfo.Arguments = "-V";
                 p.StartInfo.UseShellExecute = false;
                 p.StartInfo.CreateNoWindow = true;
@@ -343,6 +318,7 @@ namespace VSRepoGUI
                 return false;
             }
         }
+
 
         public void AddChatter(VsApi chatter)
         {
@@ -467,7 +443,6 @@ namespace VSRepoGUI
                     {
                         await vsrepo.UpgradeAsync(plugin, force: true);
                     }
-
                     break;
                 case VsApi.PluginStatus.NotInstalled:
                     await vsrepo.InstallAsync(plugin);
@@ -630,39 +605,112 @@ namespace VSRepoGUI
                 // User Plugins in core64 are bad.
 
                 AppIsWorking(true);
+                bool current_vs_installation_works = true;
                 var diag = new Diagnose(vsrepo.python_bin);
+
+                var version = await diag.GetVapoursynthVersion();
+                var vs_dll = await diag.GetLoadedVapoursynthDll();
+
+                if (String.IsNullOrWhiteSpace(version))
+                    current_vs_installation_works = false;
+
                 Dictionary<string, List<string>> plugins = await diag.CheckPluginsAsync(vsrepo.GetPaths(Win64).Binaries);
                 if (!PortableMode)
                 {
-                    Dictionary<string, List<string>> plugins64folder = await diag.CheckPluginsAsync(reg_vs_plugins);
-
-                    //Check for duplicate dll files in both folders: appdata\plugins and vapoursynth\plugins
-                    var p1 = plugins.Values.SelectMany(x => x.Select(p => Path.GetFileName(p))).ToList();
-                    var p2 = plugins64folder.Values.SelectMany(x => x.Select(p => Path.GetFileName(p))).ToList();
-                    
-
-                    //Merge appdata\plugins and vapoursynth\plugins
-                    for (int i = 0; i < plugins.Count; i++)
+                    if(current_vs_installation_works)
                     {
-                        plugins[plugins.ElementAt(i).Key] = plugins[plugins.ElementAt(i).Key].Concat(plugins64folder[plugins.ElementAt(i).Key]).ToList();
-                    }
+                        Dictionary<string, List<string>> plugins64folder = await diag.CheckPluginsAsync(vsregistry.GetCurrentRegPluginsPath());
 
-                    plugins["duplicate_dlls"] = p1.Intersect(p2).ToList();
+                        //Check for duplicate dll files in both folders: appdata\plugins and vapoursynth\plugins
+                        var p1 = plugins.Values.SelectMany(x => x.Select(p => Path.GetFileName(p))).ToList();
+                        var p2 = plugins64folder.Values.SelectMany(x => x.Select(p => Path.GetFileName(p))).ToList();
+
+
+                        //Merge appdata\plugins and vapoursynth\plugins
+                        for (int i = 0; i < plugins.Count; i++)
+                        {
+                            plugins[plugins.ElementAt(i).Key] = plugins[plugins.ElementAt(i).Key].Concat(plugins64folder[plugins.ElementAt(i).Key]).ToList();
+                        }
+
+                        plugins["duplicate_dlls"] = p1.Intersect(p2).ToList();
+                    } else
+                    {
+                       // plugins["duplicate_dlls"] = new List<string>();
+                    }
+                        
                 } else
                 {
                     plugins["duplicate_dlls"] = new List<string>();
                 }
 
-                var version = await diag.GetVapoursynthVersion();
+                
+                var osname = (from x in new ManagementObjectSearcher("SELECT Caption FROM Win32_OperatingSystem").Get().Cast<ManagementObject>()
+                                select x.GetPropertyValue("Caption")).FirstOrDefault();
 
-                if(plugins != null)
+                ManagementObjectSearcher mos = new ManagementObjectSearcher("root\\CIMV2", "SELECT * FROM Win32_Processor");
+                string cpu = mos.Get().OfType<ManagementObject>().FirstOrDefault()["Name"].ToString();
+
+
+                tb.Inlines.Add(@"/!\ Only Plugins and no Scripts are tested /!\");
+                if(current_vs_installation_works)
+                    tb.Inlines.Add("\n" + version);
+                else
+                    tb.Inlines.Add(new Run("\n\nImporting VapourSynth in python failed! \n") { FontSize = 15, FontWeight = FontWeights.Bold, Foreground = Brushes.Red });
+                tb.Inlines.Add("\nOS: " + (osname != null ? osname.ToString() : "Unknown"));
+                tb.Inlines.Add("\nIs 64Bit OS?: " + System.Environment.Is64BitOperatingSystem);
+                tb.Inlines.Add("\nCPU: " + cpu);
+                tb.Inlines.Add("\nCPU Cores: " + System.Environment.ProcessorCount);
+
+                tb.Inlines.Add(new Run("\n\nPython location: ") {  FontSize = 12, FontWeight = FontWeights.Bold });
+                tb.Inlines.Add(await diag.GetPythonLocation()); //vsrepo.python_bin
+
+
+                tb.Inlines.Add(new Run("\nLoaded VapourSynth dll: ") { FontSize = 12, FontWeight = FontWeights.Bold });
+                if (vs_dll != null)
+                    tb.Inlines.Add(vs_dll + "\n");
+                else
+                    tb.Inlines.Add(" - \n");
+
+                // Show VS installations found in the registry
+                if(vsregistry.Registry.ContainsKey("local64"))
                 {
-                    var osname = (from x in new ManagementObjectSearcher("SELECT Caption FROM Win32_OperatingSystem").Get().Cast<ManagementObject>()
-                                  select x.GetPropertyValue("Caption")).FirstOrDefault();
+                    tb.Inlines.Add("\nFound an installation in ");
+                    tb.Inlines.Add(new Run("HKEY_LOCAL_MACHINE\\SOFTWARE\\VapourSynth") { Foreground = Brushes.Blue });
+                    tb.Inlines.Add("\n - Path: " + vsregistry.Registry["local64"].Path);
+                    tb.Inlines.Add("\n - PythonPath: " + vsregistry.Registry["local64"].PythonPath);
+                    tb.Inlines.Add("\n - Version: " + vsregistry.Registry["local64"].Version);
+                }
+                if (vsregistry.Registry.ContainsKey("local32"))
+                {
+                    tb.Inlines.Add("\nFound an installation in ");
+                    tb.Inlines.Add(new Run(@"HKEY_LOCAL_MACHINE\" + vsregistry.Registry["local32"].RegPath) { Foreground = Brushes.Blue });
+                    tb.Inlines.Add("\n - Path: " + vsregistry.Registry["local32"].Path);
+                    tb.Inlines.Add("\n - PythonPath: " + vsregistry.Registry["local32"].PythonPath);
+                    tb.Inlines.Add("\n - Version: " + vsregistry.Registry["local32"].Version);
+                }
+                if (vsregistry.Registry.ContainsKey("user64"))
+                {
+                    tb.Inlines.Add("\nFound an installation in ");
+                    tb.Inlines.Add(new Run(@"HKEY_CURRENT_USER\" + vsregistry.Registry["user64"].RegPath) { Foreground = Brushes.Blue });
+                    tb.Inlines.Add("\n - Path: " + vsregistry.Registry["user64"].Path);
+                    tb.Inlines.Add("\n - PythonPath: " + vsregistry.Registry["user64"].PythonPath);
+                    tb.Inlines.Add("\n - Version: " + vsregistry.Registry["user64"].Version);
+                }
+                if (vsregistry.Registry.ContainsKey("user32"))
+                {
+                    tb.Inlines.Add("\nFound an installation in ");
+                    tb.Inlines.Add(new Run(@"HKEY_CURRENT_USER\" + vsregistry.Registry["user32"].RegPath) { Foreground = Brushes.Blue });
+                    tb.Inlines.Add("\n - Path: " + vsregistry.Registry["user32"].Path);
+                    tb.Inlines.Add("\n - PythonPath: " + vsregistry.Registry["user32"].PythonPath);
+                    tb.Inlines.Add("\n - Version: " + vsregistry.Registry["user32"].Version);
+                }
 
-                    ManagementObjectSearcher mos = new ManagementObjectSearcher("root\\CIMV2", "SELECT * FROM Win32_Processor");
-                    string cpu = mos.Get().OfType<ManagementObject>().FirstOrDefault()["Name"].ToString();
 
+                tb.Inlines.Add("\n\n============================================================\n");
+
+                if (plugins != null)
+                {
+                    //Mark plugins (dlls files) which are known to vsrepo
                     Dictionary<string, string> known_files = new Dictionary<string, string>();
                     int count_unident_dll = 0;
                     foreach (var p in plugins["not_a_vsplugin"])
@@ -673,15 +721,6 @@ namespace VSRepoGUI
                             count_unident_dll++;
                     }
 
-
-                    tb.Inlines.Add(@"/!\ Only Plugins and no Scripts are tested /!\");
-                    tb.Inlines.Add("\n" + version);
-                    tb.Inlines.Add("\nOS: " + (osname != null ? osname.ToString() : "Unknown"));
-                    tb.Inlines.Add("\nIs 64Bit OS?: " + System.Environment.Is64BitOperatingSystem);
-                    tb.Inlines.Add("\nCPU: " + cpu);
-                    tb.Inlines.Add("\nCPU Cores: " + System.Environment.ProcessorCount);
-
-                    tb.Inlines.Add("\n\n============================================================\n");
 
                     tb.Inlines.Add(new Run(string.Format("\nChecked Plugins: {0}, Notices: {1}, Errors: {2}\n\n",
                              plugins.Values.SelectMany(x => x).Count(),
@@ -699,16 +738,16 @@ namespace VSRepoGUI
                         link2.RequestNavigate += new System.Windows.Navigation.RequestNavigateEventHandler(Hyperlink_Explorer);
                         link1.IsEnabled = link2.IsEnabled = true;
                         link1.Inlines.Add(vsrepo.GetPaths(Win64).Binaries);
-                        link2.Inlines.Add(reg_vs_plugins);
+                        link2.Inlines.Add(vsregistry.GetCurrentRegPluginsPath());
                         link1.NavigateUri = new Uri(vsrepo.GetPaths(Win64).Binaries);
-                        link2.NavigateUri = new Uri(reg_vs_plugins);
+                        link2.NavigateUri = new Uri(vsregistry.GetCurrentRegPluginsPath());
 
                         tb.Inlines.Add("Plugin Paths: \n\t • ");
                         tb.Inlines.Add(link1);
                         tb.Inlines.Add("\n\t • ");
                         tb.Inlines.Add(link2);
                         tb.Inlines.Add("\n");
-                        //tb.Inlines.Add(string.Format("Plugin Paths: \n\t{0}\n\t{1}\n", vsrepo.GetPaths(Win64).Binaries, reg_vs_plugins));
+                        //tb.Inlines.Add(string.Format("Plugin Paths: \n\t{0}\n\t{1}\n", vsrepo.GetPaths(Win64).Binaries, vsregistry.GetCurrentRegPluginsPath()));
                     }
 
 
@@ -798,7 +837,7 @@ namespace VSRepoGUI
 
                 } else
                 {
-                    tb.Inlines.Add("Some error occured");
+                    tb.Inlines.Add("Could not test plugins");
                 }
 
                 ScrollViewer.Content = richtextbox;

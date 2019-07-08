@@ -1,4 +1,4 @@
-﻿using Newtonsoft.Json;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -76,6 +76,20 @@ namespace VSRepoGUI
         }
 
 
+        public async Task<string> GetLoadedVapoursynthDll()
+        {
+            var result = await Task.Run(() => run_python("import vapoursynth; print(vapoursynth.__file__)").Trim());
+            if (String.IsNullOrEmpty(result))
+                return null;
+            return result.Split('.')[0] + ".dll";
+        }
+
+
+        public async Task<string> GetPythonLocation()
+        {
+            return await Task.Run(() => run_python("import sys; print(sys.executable)").Trim());
+        }
+        
         public async Task<Depends> GetDllDependencies(string file)
         {
             var result = await Task.Run(() => run_listpedeps(file));

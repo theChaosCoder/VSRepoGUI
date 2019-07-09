@@ -44,6 +44,11 @@
                     <TextBlock FontSize="11" Visibility="{Binding Doom9, Converter={StaticResource VisText}}"><Hyperlink NavigateUri="{Binding Doom9}" RequestNavigate="Hyperlink_open">Doom9</Hyperlink></TextBlock>
                 </StackPanel>
             </DataTemplate>
+            <DataTemplate x:Key="DateTemplateNamespaceLink" x:Name="DateTemplateNamespaceLink">
+                <TextBlock><Hyperlink NavigateUri="https:\\github.com" RequestNavigate="Hyperlink_namespace">
+                    <Run Text="{Binding Namespace}"/>
+                </Hyperlink></TextBlock>
+            </DataTemplate>
             <DataTemplate x:Key="DateTemplateInstall" x:Name="DateTemplateInstall">
                 <Button x:Name="btnInstall" Width="124" Click="Button_Install" DataContext="{Binding Path=.}" Tag="{Binding Namespace}" Background="{Binding Status, Converter={StaticResource StatusToStyle}}" Content="{Binding Status, Converter={StaticResource StatusToText}}" IsEnabled="{Binding IsNotWorking, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type local:MainWindow}}}"></Button>
             </DataTemplate>
@@ -104,7 +109,7 @@
                     <DataGrid.Columns>
 
                         <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="1.2*" SortDirection="Ascending"/>
-                        <DataGridHyperlinkColumn Header="Namespace" Binding="{Binding Namespace}" Width="1.2*" />
+                        <DataGridTemplateColumn Header="Namespace" Width="1*" CellTemplate="{StaticResource DateTemplateNamespaceLink}" />
 
                         <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="1.8*" />
 
@@ -134,7 +139,7 @@
                     <DataGrid.Columns>
 
                         <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="1.2*" SortDirection="Ascending"/>
-                        <DataGridHyperlinkColumn Header="Namespace" Binding="{Binding Namespace}" Width="1*" />
+                        <DataGridTemplateColumn Header="Namespace" Width="1*" CellTemplate="{StaticResource DateTemplateNamespaceLink}" />
 
                         <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="1.8*" />
 
@@ -160,7 +165,7 @@
                     <DataGrid.Columns>
 
                         <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="1.2*" SortDirection="Ascending"/>
-                        <DataGridHyperlinkColumn Header="Namespace" Binding="{Binding Namespace}" Width="1*" />
+                        <DataGridTemplateColumn Header="Namespace" Width="1*" CellTemplate="{StaticResource DateTemplateNamespaceLink}" />
 
                         <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="1.8*" />
 
@@ -186,7 +191,7 @@
                     <DataGrid.Columns>
 
                         <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="1.2*" SortDirection="Ascending"/>
-                        <DataGridHyperlinkColumn Header="Namespace" Binding="{Binding Namespace}" Width="1*" />
+                        <DataGridTemplateColumn Header="Namespace" Width="1*" CellTemplate="{StaticResource DateTemplateNamespaceLink}" />
 
                         <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="1.8*" />
 
@@ -212,9 +217,10 @@
                     <DataGrid.Columns>
 
                         <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="1.2*" SortDirection="Ascending"/>
-                        <DataGridHyperlinkColumn Header="Namespace" Binding="{Binding Namespace}" Width="1*" />
-
+                        <DataGridTemplateColumn Header="Namespace" Width="1*" CellTemplate="{StaticResource DateTemplateNamespaceLink}" />
+                        
                         <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="1.8*" />
+                        
                         <DataGridTemplateColumn Header="Links" Width="Auto" CellTemplate="{StaticResource DateTemplateLinks}" />
 
                         <DataGridTextColumn Header="Version" Binding="{Binding Releases[0].Version}" Width="1*" />

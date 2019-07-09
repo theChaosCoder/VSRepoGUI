@@ -509,7 +509,7 @@ namespace VSRepoGUI
         }
         private void Hyperlink_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
         {
-            System.Diagnostics.Process.Start(e.Uri.AbsoluteUri);
+            Process.Start(e.Uri.AbsoluteUri);
         }
 
         private void Hyperlink_Click_1(object sender, RoutedEventArgs e)
@@ -519,7 +519,14 @@ namespace VSRepoGUI
 
         private void Hyperlink_open(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
         {
-            System.Diagnostics.Process.Start(e.Uri.AbsoluteUri);
+            Process.Start(e.Uri.AbsoluteUri);
+        }
+
+        private void Hyperlink_namespace(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
+        {
+            var hyperlink = sender as Hyperlink;
+            string uri = e.Uri + "vapoursynth/vsrepo/tree/master/local/" + ((Package)hyperlink.DataContext).Namespace + ".json";
+            Process.Start(uri);
         }
 
         private void Hyperlink_Click_Plugins(object sender, RoutedEventArgs e)

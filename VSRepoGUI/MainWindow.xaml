@@ -161,7 +161,7 @@
                 </DataGrid>
             </TabItem>
             <TabItem Header="{Binding Plugins.TabNotInstalled}">
-                <DataGrid Grid.Row="1" Grid.Column="0" x:Name="dataGridUnknown"  AutoGenerateColumns="False" AlternationCount="2" AlternatingRowBackground="WhiteSmoke" IsReadOnly="True" ItemsSource="{Binding Plugins.NotInstalled}">
+                <DataGrid Grid.Row="1" Grid.Column="0" x:Name="dataGridUnknown"  AutoGenerateColumns="False" AlternationCount="2" AlternatingRowBackground="WhiteSmoke" IsReadOnly="True" ItemsSource="{Binding Plugins.NotInstalled}" RowHeight="57">
                     <DataGrid.Columns>
 
                         <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="1.2*" SortDirection="Ascending"/>
@@ -187,7 +187,7 @@
                 </DataGrid>
             </TabItem>
             <TabItem Header="{Binding Plugins.TabInstalledUnknown}">
-                <DataGrid Grid.Row="1" Grid.Column="0" x:Name="dataGridNotInstalled"  AutoGenerateColumns="False" AlternationCount="2" AlternatingRowBackground="WhiteSmoke" IsReadOnly="True" ItemsSource="{Binding Plugins.Unknown}">
+                <DataGrid Grid.Row="1" Grid.Column="0" x:Name="dataGridNotInstalled"  AutoGenerateColumns="False" AlternationCount="2" AlternatingRowBackground="WhiteSmoke" IsReadOnly="True" ItemsSource="{Binding Plugins.Unknown}" RowHeight="57">
                     <DataGrid.Columns>
 
                         <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="1.2*" SortDirection="Ascending"/>
@@ -213,7 +213,7 @@
                 </DataGrid>
             </TabItem>
             <TabItem Header="{Binding Plugins.TabAll}">
-                <DataGrid Grid.Row="1" Grid.Column="0" x:Name="dataGridAll"  AutoGenerateColumns="False" AlternationCount="2" AlternatingRowBackground="WhiteSmoke" IsReadOnly="True" ItemsSource="{Binding Plugins.All}">
+                <DataGrid Grid.Row="1" Grid.Column="0" x:Name="dataGridAll"  AutoGenerateColumns="False" AlternationCount="2" AlternatingRowBackground="WhiteSmoke" IsReadOnly="True" ItemsSource="{Binding Plugins.All}" RowHeight="57">
                     <DataGrid.Columns>
 
                         <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="1.2*" SortDirection="Ascending"/>

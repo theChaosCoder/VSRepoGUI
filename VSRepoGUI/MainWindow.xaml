@@ -100,7 +100,7 @@
         </Grid>
         <ProgressBar Name="Progressbar" Grid.Row="1" Grid.Column="0" IsIndeterminate="False" VerticalAlignment="Top" Panel.ZIndex="80" IsEnabled="False"></ProgressBar>
 
-        <dragablz:TabablzControl Grid.Row="1" Grid.Column="0" FixedHeaderCount="5" Name="TabablzControl" SelectionChanged="TabablzControl_SelectionChanged">
+        <dragablz:TabablzControl Grid.Row="1" Grid.Column="0" FixedHeaderCount="6" Name="TabablzControl" SelectionChanged="TabablzControl_SelectionChanged">
             <dragablz:TabablzControl.InterTabController>
                 <dragablz:InterTabController />
             </dragablz:TabablzControl.InterTabController>

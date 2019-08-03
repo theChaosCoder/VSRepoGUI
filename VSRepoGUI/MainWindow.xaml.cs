@@ -103,9 +103,6 @@ namespace VSRepoGUI
             }
             InitializeComponent();
 
-            //TabablzControl doesn't support hiding or collapsing Tabitems. Hide "Diagnose Problems" (last) tab if we are in avisynth mode
-            if (!IsVsrepo)
-                TabablzControl.Items.RemoveAt(TabablzControl.Items.Count - 1);
             
             AddChatter(vsrepo);
             if (IsVsrepo)
@@ -587,8 +584,11 @@ namespace VSRepoGUI
 
         private async void TabablzControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (DiagnoseTab.IsSelected)
+            // ##### AviSynth diagnose #####
+            if (!IsVsrepo)
             {
+                AppIsWorking(true);
+
                 // Textoutput controls init
                 RichTextBox richtextbox = new RichTextBox();
                 FlowDocument flowdoc = new FlowDocument();
@@ -601,254 +601,320 @@ namespace VSRepoGUI
 
                 flowdoc.Blocks.Add(tb);
                 richtextbox.Document = flowdoc;
-                //tb.TextWrapping = TextWrapping.Wrap;
+
+                var diag = new Diagnose("");
+                var script_dups = diag.CheckDuplicateAvsScripts(vsrepo.GetPaths(Win64).Scripts);
 
 
-                // http://www.vapoursynth.com/doc/autoloading.html#windows
-                // 1. <AppData>\VapourSynth\plugins64
-                // 2. <VapourSynth path>\core64\plugins
-                // 3. <VapourSynth path>\plugins64
-                // vsrepo returns (always?) the path of the AppData folder no 1.
-                // User Plugins in core64 are bad.
+                tb.Inlines.Add(new Run("Use ") { FontSize = 15, FontWeight = FontWeights.Bold, Foreground = Brushes.Red });
+                Hyperlink avsmeter = new Hyperlink() {
+                    IsEnabled = true,
+                    NavigateUri = new Uri("https://forum.doom9.org/showthread.php?t=173259")
+                };
+                avsmeter.RequestNavigate += new System.Windows.Navigation.RequestNavigateEventHandler(Hyperlink_open);
+                avsmeter.Inlines.Add(new Run("Avisynth Info Tool or AVSMeter") { FontSize = 15, FontWeight = FontWeights.Bold, Foreground = Brushes.Blue });
+                tb.Inlines.Add(avsmeter);
+                tb.Inlines.Add(new Run(" to detect other Avisynth problems. \n\n") { FontSize = 15, FontWeight = FontWeights.Bold, Foreground = Brushes.Red });
+                               
 
-                AppIsWorking(true);
-                bool current_vs_installation_works = true;
-                var diag = new Diagnose(vsrepo.python_bin);
-
-                var version = await diag.GetVapoursynthVersion();
-                var vs_dll = await diag.GetLoadedVapoursynthDll();
-
-                if (String.IsNullOrWhiteSpace(version))
-                    current_vs_installation_works = false;
-
-                Dictionary<string, List<string>> plugins = await diag.CheckPluginsAsync(vsrepo.GetPaths(Win64).Binaries);
-                if (!PortableMode)
+                tb.Inlines.Add(new Run("\n\nDuplicate Function Name Detection \n") { FontSize = 14 });
+                tb.Inlines.Add(new Run("------------------------------------------------------------\n") { Foreground = Brushes.SlateBlue });
+                tb.Inlines.Add("\nPath of *.avsi files: " + vsrepo.GetPaths(Win64).Scripts);
+                tb.Inlines.Add("\nFound " + script_dups.Count + " potential conflicts: \n");
+                if (script_dups.Count > 0)
                 {
-                    if(current_vs_installation_works)
+                    foreach (var dup in script_dups)
                     {
-                        Dictionary<string, List<string>> plugins64folder = await diag.CheckPluginsAsync(vsregistry.GetCurrentRegPluginsPath());
-
-                        //Check for duplicate dll files in both folders: appdata\plugins and vapoursynth\plugins
-                        var p1 = plugins.Values.SelectMany(x => x.Select(p => Path.GetFileName(p))).ToList();
-                        var p2 = plugins64folder.Values.SelectMany(x => x.Select(p => Path.GetFileName(p))).ToList();
-
-
-                        //Merge appdata\plugins and vapoursynth\plugins
-                        for (int i = 0; i < plugins.Count; i++)
+                        tb.Inlines.Add("\nFunction name: ");
+                        tb.Inlines.Add(new Run(dup.Key + "\n") { FontWeight = FontWeights.Bold });
+                        foreach (var file in dup.Value)
                         {
-                            plugins[plugins.ElementAt(i).Key] = plugins[plugins.ElementAt(i).Key].Concat(plugins64folder[plugins.ElementAt(i).Key]).ToList();
+                            tb.Inlines.Add(new Run("\t" + Path.GetDirectoryName(file) + @"\") { Foreground = Brushes.Silver });
+                            tb.Inlines.Add(new Run(Path.GetFileName(file) + "\n"));
+                            //tb.Inlines.Add("\t - " + file + "\n");
                         }
-
-                        plugins["duplicate_dlls"] = p1.Intersect(p2).ToList();
-                    } else
-                    {
-                       // plugins["duplicate_dlls"] = new List<string>();
                     }
-                        
                 } else
                 {
-                    plugins["duplicate_dlls"] = new List<string>();
-                }
-
-                
-                var osname = (from x in new ManagementObjectSearcher("SELECT Caption FROM Win32_OperatingSystem").Get().Cast<ManagementObject>()
-                                select x.GetPropertyValue("Caption")).FirstOrDefault();
-
-                ManagementObjectSearcher mos = new ManagementObjectSearcher("root\\CIMV2", "SELECT * FROM Win32_Processor");
-                string cpu = mos.Get().OfType<ManagementObject>().FirstOrDefault()["Name"].ToString();
-
-
-                tb.Inlines.Add(@"/!\ Only Plugins and no Scripts are tested /!\");
-                if(current_vs_installation_works)
-                    tb.Inlines.Add("\n" + version);
-                else
-                    tb.Inlines.Add(new Run("\n\nImporting VapourSynth in python failed! \n") { FontSize = 15, FontWeight = FontWeights.Bold, Foreground = Brushes.Red });
-                tb.Inlines.Add("\nOS: " + (osname != null ? osname.ToString() : "Unknown"));
-                tb.Inlines.Add("\nIs 64Bit OS?: " + System.Environment.Is64BitOperatingSystem);
-                tb.Inlines.Add("\nCPU: " + cpu);
-                tb.Inlines.Add("\nCPU Cores: " + System.Environment.ProcessorCount);
-
-                tb.Inlines.Add(new Run("\n\nPython location: ") {  FontSize = 12, FontWeight = FontWeights.Bold });
-                tb.Inlines.Add(await diag.GetPythonLocation()); //vsrepo.python_bin
-
-
-                tb.Inlines.Add(new Run("\nLoaded VapourSynth dll: ") { FontSize = 12, FontWeight = FontWeights.Bold });
-                if (vs_dll != null)
-                    tb.Inlines.Add(vs_dll + "\n");
-                else
-                    tb.Inlines.Add(" - \n");
-
-                // Show VS installations found in the registry
-                if(vsregistry.Registry.ContainsKey("local64"))
-                {
-                    tb.Inlines.Add("\nFound an installation in ");
-                    tb.Inlines.Add(new Run("HKEY_LOCAL_MACHINE\\SOFTWARE\\VapourSynth") { Foreground = Brushes.Blue });
-                    tb.Inlines.Add("\n - Path: " + vsregistry.Registry["local64"].Path);
-                    tb.Inlines.Add("\n - PythonPath: " + vsregistry.Registry["local64"].PythonPath);
-                    tb.Inlines.Add("\n - Version: " + vsregistry.Registry["local64"].Version);
-                }
-                if (vsregistry.Registry.ContainsKey("local32"))
-                {
-                    tb.Inlines.Add("\nFound an installation in ");
-                    tb.Inlines.Add(new Run(@"HKEY_LOCAL_MACHINE\" + vsregistry.Registry["local32"].RegPath) { Foreground = Brushes.Blue });
-                    tb.Inlines.Add("\n - Path: " + vsregistry.Registry["local32"].Path);
-                    tb.Inlines.Add("\n - PythonPath: " + vsregistry.Registry["local32"].PythonPath);
-                    tb.Inlines.Add("\n - Version: " + vsregistry.Registry["local32"].Version);
-                }
-                if (vsregistry.Registry.ContainsKey("user64"))
-                {
-                    tb.Inlines.Add("\nFound an installation in ");
-                    tb.Inlines.Add(new Run(@"HKEY_CURRENT_USER\" + vsregistry.Registry["user64"].RegPath) { Foreground = Brushes.Blue });
-                    tb.Inlines.Add("\n - Path: " + vsregistry.Registry["user64"].Path);
-                    tb.Inlines.Add("\n - PythonPath: " + vsregistry.Registry["user64"].PythonPath);
-                    tb.Inlines.Add("\n - Version: " + vsregistry.Registry["user64"].Version);
-                }
-                if (vsregistry.Registry.ContainsKey("user32"))
-                {
-                    tb.Inlines.Add("\nFound an installation in ");
-                    tb.Inlines.Add(new Run(@"HKEY_CURRENT_USER\" + vsregistry.Registry["user32"].RegPath) { Foreground = Brushes.Blue });
-                    tb.Inlines.Add("\n - Path: " + vsregistry.Registry["user32"].Path);
-                    tb.Inlines.Add("\n - PythonPath: " + vsregistry.Registry["user32"].PythonPath);
-                    tb.Inlines.Add("\n - Version: " + vsregistry.Registry["user32"].Version);
-                }
-
-
-                tb.Inlines.Add("\n\n============================================================\n");
-
-                if (plugins != null)
-                {
-                    //Mark plugins (dlls files) which are known to vsrepo
-                    Dictionary<string, string> known_files = new Dictionary<string, string>();
-                    int count_unident_dll = 0;
-                    foreach (var p in plugins["not_a_vsplugin"])
-                    {
-                        if (plugins_dll_parents.ContainsKey(Path.GetFileName(p)))
-                            known_files.Add(p, plugins_dll_parents[Path.GetFileName(p)]);
-                        else
-                            count_unident_dll++;
-                    }
-
-
-                    tb.Inlines.Add(new Run(string.Format("\nChecked Plugins: {0}, Notices: {1}, Errors: {2}\n\n",
-                             plugins.Values.SelectMany(x => x).Count(),
-                            //plugins["no_problems"].Count() + plugins["not_a_vsplugin"].Count() + plugins["missing_dependency"].Count() + plugins["wrong_arch"].Count() + plugins["others"].Count(),
-                            count_unident_dll + plugins["duplicate_dlls"].Count(),
-                            plugins["wrong_arch"].Count() + plugins["missing_dependency"].Count() + plugins["others"].Count() + plugins["namespace"].Count())) { Foreground = Brushes.DarkOrange });
-
-                    if(PortableMode)
-                        tb.Inlines.Add(string.Format("Plugin Path: {0}\n", vsrepo.GetPaths(Win64).Binaries));
-                    else
-                    {
-                        Hyperlink link1 = new Hyperlink();
-                        Hyperlink link2 = new Hyperlink();
-                        link1.RequestNavigate += new System.Windows.Navigation.RequestNavigateEventHandler(Hyperlink_Explorer);
-                        link2.RequestNavigate += new System.Windows.Navigation.RequestNavigateEventHandler(Hyperlink_Explorer);
-                        link1.IsEnabled = link2.IsEnabled = true;
-                        link1.Inlines.Add(vsrepo.GetPaths(Win64).Binaries);
-                        link2.Inlines.Add(vsregistry.GetCurrentRegPluginsPath());
-                        link1.NavigateUri = new Uri(vsrepo.GetPaths(Win64).Binaries);
-                        link2.NavigateUri = new Uri(vsregistry.GetCurrentRegPluginsPath());
-
-                        tb.Inlines.Add("Plugin Paths: \n\t • ");
-                        tb.Inlines.Add(link1);
-                        tb.Inlines.Add("\n\t • ");
-                        tb.Inlines.Add(link2);
-                        tb.Inlines.Add("\n");
-                        //tb.Inlines.Add(string.Format("Plugin Paths: \n\t{0}\n\t{1}\n", vsrepo.GetPaths(Win64).Binaries, vsregistry.GetCurrentRegPluginsPath()));
-                    }
-
-
-                    DiagPrintHelper(plugins, "wrong_arch", "\n\n🔥 Error 193 - You probably mixed 32/64 bit plugins: \n", tb, true);
-                    
-                    if (plugins["missing_dependency"].Count() > 0)
-                    {
-                        tb.Inlines.Add(new Run("\n\n🔥 Error 126 - A DLL dependency is probably missing: \n") { FontSize = 14 });
-                        tb.Inlines.Add(new Run("------------------------------------------------------------\n") { Foreground = Brushes.SlateBlue });
-                        bool hint_listpedeps = false;
-                        foreach (var p in plugins["missing_dependency"])
-                        {
-                            Diagnose.Depends file_dependencies = null;
-                           
-                            try
-                            {
-                                file_dependencies = await diag.GetDllDependencies(p);
-                            } catch
-                            {
-                                hint_listpedeps = true;
-                            }
-                            
-                            if(file_dependencies != null)
-                            {
-                                tb.Inlines.Add("   ");
-                                if (Path.IsPathRooted(p))
-                                    tb.Inlines.Add(new Run(Path.GetDirectoryName(p) + @"\") { Foreground = Brushes.Silver });
-                                tb.Inlines.Add(Path.GetFileName(p) + "\n");
-                                tb.Inlines.Add("   \t requires following dependencies (one of these could be missing):\n\n");
-
-                                foreach (var dependency in file_dependencies.Imports)
-                                {
-                                    tb.Inlines.Add("   \t - " + dependency + "\n");
-                                }
-                                tb.Inlines.Add("\n");
-                            } else
-                            {
-                                tb.Inlines.Add("   ");
-                                if (Path.IsPathRooted(p))
-                                    tb.Inlines.Add(new Run(Path.GetDirectoryName(p) + @"\") { Foreground = Brushes.Silver });
-                                tb.Inlines.Add(Path.GetFileName(p) + "\n");
-                            }
-                        }
-                        if(hint_listpedeps)
-                        {
-                            tb.Inlines.Add("\nInstall listpedeps.exe via  'choco install pedeps'");
-                            tb.Inlines.Add("\nor copy listpedeps.exe next to vsrepogui.exe for detailed information about missing dependencies.");
-                            tb.Inlines.Add("\nDownload here: https://github.com/brechtsanders/pedeps/releases\n\n");
-                        }
-                    }
-
-                    DiagPrintHelper(plugins, "namespace", "\n\n🔥 Namespace already populated, therefore it failed to load: \n", tb, true);
-                    DiagPrintHelper(plugins, "others", "\n\n🔥 Error unknown: \n", tb, true);
-
-                    var not_a_vsplugin_known = plugins["not_a_vsplugin"].Where(x => known_files.ContainsKey(x)).Select(x => x).ToList();
-                    var not_a_vsplugin_unknown = plugins["not_a_vsplugin"].Where(x => !known_files.ContainsKey(x)).Select(x => x).ToList();
-
-                    if (not_a_vsplugin_known.Count() > 0)
-                    {
-                        tb.Inlines.Add(new Run("\n\n🙂 Identified non-VapourSynth Plugins: \n") { FontSize = 14 });
-                        tb.Inlines.Add(new Run("------------------------------------------------------------\n") { Foreground = Brushes.SlateBlue });
-                        foreach (var p in not_a_vsplugin_known)
-                        {
-                            tb.Inlines.Add("   ");
-                            if (Path.IsPathRooted(p))
-                                tb.Inlines.Add(new Run(Path.GetDirectoryName(p) + @"\") { Foreground = Brushes.Silver });
-                            tb.Inlines.Add(Path.GetFileName(p) + "\t");
-                            tb.Inlines.Add(new Run("[belongs to " + known_files[p] + "]\n") { Foreground = Brushes.Orange });
-                        }
-                    }
-                    if (not_a_vsplugin_unknown.Count() > 0)
-                    {
-                        tb.Inlines.Add(new Run("\n\n🤨 Unidentified DLLs (maybe also Plugin dependencies?): \n") { FontSize = 14 });
-                        tb.Inlines.Add(new Run("------------------------------------------------------------\n") { Foreground = Brushes.SlateBlue });
-                        foreach (var p in not_a_vsplugin_unknown)
-                        {
-                            tb.Inlines.Add("   ");
-                            if (Path.IsPathRooted(p))
-                                tb.Inlines.Add(new Run(Path.GetDirectoryName(p) + @"\") { Foreground = Brushes.Silver });
-                            tb.Inlines.Add(Path.GetFileName(p) + "\n");
-                        }
-                    }
-                    DiagPrintHelper(plugins, "duplicate_dlls", "\n\n🤨 These dlls exits in both folders: \n", tb, true);
-
-                    //DiagPrintHelper(plugins, "not_a_vsplugin", "\n\n🤨 Notice - Probably a Plugin dependency (not a VS Plugin): \n");
-                    DiagPrintHelper(plugins, "no_problems", "\n\n👍 Successfully loaded Plugins: \n", tb, false);
-
-                } else
-                {
-                    tb.Inlines.Add("Could not test plugins");
+                    tb.Inlines.Add("No duplicate functions found in *.avsi files");
                 }
 
                 ScrollViewer.Content = richtextbox;
                 AppIsWorking(false);
+            }
+
+            // ##### Vapoursynth diagnose #####
+            if (IsVsrepo)
+            {
+                if (DiagnoseTab.IsSelected)
+                {
+                    // Textoutput controls init
+                    RichTextBox richtextbox = new RichTextBox();
+                    FlowDocument flowdoc = new FlowDocument();
+                    Paragraph tb = new Paragraph();
+
+                    richtextbox.IsDocumentEnabled = true;
+                    richtextbox.IsReadOnly = true;
+                    tb.FontFamily = new FontFamily("Lucida Console");
+                    tb.Padding = new Thickness(8);
+
+                    flowdoc.Blocks.Add(tb);
+                    richtextbox.Document = flowdoc;
+                    //tb.TextWrapping = TextWrapping.Wrap;
+
+
+                    // http://www.vapoursynth.com/doc/autoloading.html#windows
+                    // 1. <AppData>\VapourSynth\plugins64
+                    // 2. <VapourSynth path>\core64\plugins
+                    // 3. <VapourSynth path>\plugins64
+                    // vsrepo returns (always?) the path of the AppData folder no 1.
+                    // User Plugins in core64 are bad.
+
+                    AppIsWorking(true);
+                    bool current_vs_installation_works = true;
+                    var diag = new Diagnose(vsrepo.python_bin);
+
+                    var version = await diag.GetVapoursynthVersion();
+                    var vs_dll = await diag.GetLoadedVapoursynthDll();
+
+                    if (String.IsNullOrWhiteSpace(version))
+                        current_vs_installation_works = false;
+
+                    Dictionary<string, List<string>> plugins = await diag.CheckPluginsAsync(vsrepo.GetPaths(Win64).Binaries);
+                    if (!PortableMode)
+                    {
+                        if (current_vs_installation_works)
+                        {
+                            Dictionary<string, List<string>> plugins64folder = await diag.CheckPluginsAsync(vsregistry.GetCurrentRegPluginsPath());
+
+                            //Check for duplicate dll files in both folders: appdata\plugins and vapoursynth\plugins
+                            var p1 = plugins.Values.SelectMany(x => x.Select(p => Path.GetFileName(p))).ToList();
+                            var p2 = plugins64folder.Values.SelectMany(x => x.Select(p => Path.GetFileName(p))).ToList();
+
+
+                            //Merge appdata\plugins and vapoursynth\plugins
+                            for (int i = 0; i < plugins.Count; i++)
+                            {
+                                plugins[plugins.ElementAt(i).Key] = plugins[plugins.ElementAt(i).Key].Concat(plugins64folder[plugins.ElementAt(i).Key]).ToList();
+                            }
+
+                            plugins["duplicate_dlls"] = p1.Intersect(p2).ToList();
+                        }
+                        else
+                        {
+                            // plugins["duplicate_dlls"] = new List<string>();
+                        }
+
+                    }
+                    else
+                    {
+                        plugins["duplicate_dlls"] = new List<string>();
+                    }
+
+
+                    var osname = (from x in new ManagementObjectSearcher("SELECT Caption FROM Win32_OperatingSystem").Get().Cast<ManagementObject>()
+                                  select x.GetPropertyValue("Caption")).FirstOrDefault();
+
+                    ManagementObjectSearcher mos = new ManagementObjectSearcher("root\\CIMV2", "SELECT * FROM Win32_Processor");
+                    string cpu = mos.Get().OfType<ManagementObject>().FirstOrDefault()["Name"].ToString();
+
+
+                    tb.Inlines.Add(@"/!\ Only Plugins and no Scripts are tested /!\");
+                    if (current_vs_installation_works)
+                        tb.Inlines.Add("\n" + version);
+                    else
+                        tb.Inlines.Add(new Run("\n\nImporting VapourSynth in python failed! \n") { FontSize = 15, FontWeight = FontWeights.Bold, Foreground = Brushes.Red });
+                    tb.Inlines.Add("\nOS: " + (osname != null ? osname.ToString() : "Unknown"));
+                    tb.Inlines.Add("\nIs 64Bit OS?: " + System.Environment.Is64BitOperatingSystem);
+                    tb.Inlines.Add("\nCPU: " + cpu);
+                    tb.Inlines.Add("\nCPU Cores: " + System.Environment.ProcessorCount);
+
+                    tb.Inlines.Add(new Run("\n\nPython location: ") { FontSize = 12, FontWeight = FontWeights.Bold });
+                    tb.Inlines.Add(await diag.GetPythonLocation()); //vsrepo.python_bin
+
+
+                    tb.Inlines.Add(new Run("\nLoaded VapourSynth dll: ") { FontSize = 12, FontWeight = FontWeights.Bold });
+                    if (vs_dll != null)
+                        tb.Inlines.Add(vs_dll + "\n");
+                    else
+                        tb.Inlines.Add(" - \n");
+
+                    // Show VS installations found in the registry
+                    if (vsregistry.Registry.ContainsKey("local64"))
+                    {
+                        tb.Inlines.Add("\nFound an installation in ");
+                        tb.Inlines.Add(new Run(@"HKEY_LOCAL_MACHINE\" + vsregistry.Registry["local64"].RegPath) { Foreground = Brushes.Blue });
+                        tb.Inlines.Add("\n - Path: " + vsregistry.Registry["local64"].Path);
+                        tb.Inlines.Add("\n - PythonPath: " + vsregistry.Registry["local64"].PythonPath);
+                        tb.Inlines.Add("\n - Version: " + vsregistry.Registry["local64"].Version);
+                    }
+                    if (vsregistry.Registry.ContainsKey("local32"))
+                    {
+                        tb.Inlines.Add("\nFound an installation in ");
+                        tb.Inlines.Add(new Run(@"HKEY_LOCAL_MACHINE\" + vsregistry.Registry["local32"].RegPath) { Foreground = Brushes.Blue });
+                        tb.Inlines.Add("\n - Path: " + vsregistry.Registry["local32"].Path);
+                        tb.Inlines.Add("\n - PythonPath: " + vsregistry.Registry["local32"].PythonPath);
+                        tb.Inlines.Add("\n - Version: " + vsregistry.Registry["local32"].Version);
+                    }
+                    if (vsregistry.Registry.ContainsKey("user64"))
+                    {
+                        tb.Inlines.Add("\nFound an installation in ");
+                        tb.Inlines.Add(new Run(@"HKEY_CURRENT_USER\" + vsregistry.Registry["user64"].RegPath) { Foreground = Brushes.Blue });
+                        tb.Inlines.Add("\n - Path: " + vsregistry.Registry["user64"].Path);
+                        tb.Inlines.Add("\n - PythonPath: " + vsregistry.Registry["user64"].PythonPath);
+                        tb.Inlines.Add("\n - Version: " + vsregistry.Registry["user64"].Version);
+                    }
+                    if (vsregistry.Registry.ContainsKey("user32"))
+                    {
+                        tb.Inlines.Add("\nFound an installation in ");
+                        tb.Inlines.Add(new Run(@"HKEY_CURRENT_USER\" + vsregistry.Registry["user32"].RegPath) { Foreground = Brushes.Blue });
+                        tb.Inlines.Add("\n - Path: " + vsregistry.Registry["user32"].Path);
+                        tb.Inlines.Add("\n - PythonPath: " + vsregistry.Registry["user32"].PythonPath);
+                        tb.Inlines.Add("\n - Version: " + vsregistry.Registry["user32"].Version);
+                    }
+
+
+                    tb.Inlines.Add("\n\n============================================================\n");
+
+                    if (plugins != null)
+                    {
+                        //Mark plugins (dlls files) which are known to vsrepo
+                        Dictionary<string, string> known_files = new Dictionary<string, string>();
+                        int count_unident_dll = 0;
+                        foreach (var p in plugins["not_a_vsplugin"])
+                        {
+                            if (plugins_dll_parents.ContainsKey(Path.GetFileName(p)))
+                                known_files.Add(p, plugins_dll_parents[Path.GetFileName(p)]);
+                            else
+                                count_unident_dll++;
+                        }
+
+
+                        tb.Inlines.Add(new Run(string.Format("\nChecked Plugins: {0}, Notices: {1}, Errors: {2}\n\n",
+                                 plugins.Values.SelectMany(x => x).Count(),
+                                //plugins["no_problems"].Count() + plugins["not_a_vsplugin"].Count() + plugins["missing_dependency"].Count() + plugins["wrong_arch"].Count() + plugins["others"].Count(),
+                                count_unident_dll + plugins["duplicate_dlls"].Count(),
+                                plugins["wrong_arch"].Count() + plugins["missing_dependency"].Count() + plugins["others"].Count() + plugins["namespace"].Count()))
+                        { Foreground = Brushes.DarkOrange });
+
+                        if (PortableMode)
+                            tb.Inlines.Add(string.Format("Plugin Path: {0}\n", vsrepo.GetPaths(Win64).Binaries));
+                        else
+                        {
+                            Hyperlink link1 = new Hyperlink();
+                            Hyperlink link2 = new Hyperlink();
+                            link1.RequestNavigate += new System.Windows.Navigation.RequestNavigateEventHandler(Hyperlink_Explorer);
+                            link2.RequestNavigate += new System.Windows.Navigation.RequestNavigateEventHandler(Hyperlink_Explorer);
+                            link1.IsEnabled = link2.IsEnabled = true;
+                            link1.Inlines.Add(vsrepo.GetPaths(Win64).Binaries);
+                            link2.Inlines.Add(vsregistry.GetCurrentRegPluginsPath());
+                            link1.NavigateUri = new Uri(vsrepo.GetPaths(Win64).Binaries);
+                            link2.NavigateUri = new Uri(vsregistry.GetCurrentRegPluginsPath());
+
+                            tb.Inlines.Add("Plugin Paths: \n\t • ");
+                            tb.Inlines.Add(link1);
+                            tb.Inlines.Add("\n\t • ");
+                            tb.Inlines.Add(link2);
+                            tb.Inlines.Add("\n");
+                            //tb.Inlines.Add(string.Format("Plugin Paths: \n\t{0}\n\t{1}\n", vsrepo.GetPaths(Win64).Binaries, vsregistry.GetCurrentRegPluginsPath()));
+                        }
+
+
+                        DiagPrintHelper(plugins, "wrong_arch", "\n\n🔥 Error 193 - You probably mixed 32/64 bit plugins: \n", tb, true);
+
+                        if (plugins["missing_dependency"].Count() > 0)
+                        {
+                            tb.Inlines.Add(new Run("\n\n🔥 Error 126 - A DLL dependency is probably missing: \n") { FontSize = 14 });
+                            tb.Inlines.Add(new Run("------------------------------------------------------------\n") { Foreground = Brushes.SlateBlue });
+                            bool hint_listpedeps = false;
+                            foreach (var p in plugins["missing_dependency"])
+                            {
+                                Diagnose.Depends file_dependencies = null;
+
+                                try
+                                {
+                                    file_dependencies = await diag.GetDllDependencies(p);
+                                }
+                                catch
+                                {
+                                    hint_listpedeps = true;
+                                }
+
+                                if (file_dependencies != null)
+                                {
+                                    tb.Inlines.Add("   ");
+                                    if (Path.IsPathRooted(p))
+                                        tb.Inlines.Add(new Run(Path.GetDirectoryName(p) + @"\") { Foreground = Brushes.Silver });
+                                    tb.Inlines.Add(Path.GetFileName(p) + "\n");
+                                    tb.Inlines.Add("   \t requires following dependencies (one of these could be missing):\n\n");
+
+                                    foreach (var dependency in file_dependencies.Imports)
+                                    {
+                                        tb.Inlines.Add("   \t - " + dependency + "\n");
+                                    }
+                                    tb.Inlines.Add("\n");
+                                }
+                                else
+                                {
+                                    tb.Inlines.Add("   ");
+                                    if (Path.IsPathRooted(p))
+                                        tb.Inlines.Add(new Run(Path.GetDirectoryName(p) + @"\") { Foreground = Brushes.Silver });
+                                    tb.Inlines.Add(Path.GetFileName(p) + "\n");
+                                }
+                            }
+                            if (hint_listpedeps)
+                            {
+                                tb.Inlines.Add("\nInstall listpedeps.exe via  'choco install pedeps'");
+                                tb.Inlines.Add("\nor copy listpedeps.exe next to vsrepogui.exe for detailed information about missing dependencies.");
+                                tb.Inlines.Add("\nDownload here: https://github.com/brechtsanders/pedeps/releases\n\n");
+                            }
+                        }
+
+                        DiagPrintHelper(plugins, "namespace", "\n\n🔥 Namespace already populated, therefore it failed to load: \n", tb, true);
+                        DiagPrintHelper(plugins, "others", "\n\n🔥 Error unknown: \n", tb, true);
+
+                        var not_a_vsplugin_known = plugins["not_a_vsplugin"].Where(x => known_files.ContainsKey(x)).Select(x => x).ToList();
+                        var not_a_vsplugin_unknown = plugins["not_a_vsplugin"].Where(x => !known_files.ContainsKey(x)).Select(x => x).ToList();
+
+                        if (not_a_vsplugin_known.Count() > 0)
+                        {
+                            tb.Inlines.Add(new Run("\n\n🙂 Identified non-VapourSynth Plugins: \n") { FontSize = 14 });
+                            tb.Inlines.Add(new Run("------------------------------------------------------------\n") { Foreground = Brushes.SlateBlue });
+                            foreach (var p in not_a_vsplugin_known)
+                            {
+                                tb.Inlines.Add("   ");
+                                if (Path.IsPathRooted(p))
+                                    tb.Inlines.Add(new Run(Path.GetDirectoryName(p) + @"\") { Foreground = Brushes.Silver });
+                                tb.Inlines.Add(Path.GetFileName(p) + "\t");
+                                tb.Inlines.Add(new Run("[belongs to " + known_files[p] + "]\n") { Foreground = Brushes.Orange });
+                            }
+                        }
+                        if (not_a_vsplugin_unknown.Count() > 0)
+                        {
+                            tb.Inlines.Add(new Run("\n\n🤨 Unidentified DLLs (maybe also Plugin dependencies?): \n") { FontSize = 14 });
+                            tb.Inlines.Add(new Run("------------------------------------------------------------\n") { Foreground = Brushes.SlateBlue });
+                            foreach (var p in not_a_vsplugin_unknown)
+                            {
+                                tb.Inlines.Add("   ");
+                                if (Path.IsPathRooted(p))
+                                    tb.Inlines.Add(new Run(Path.GetDirectoryName(p) + @"\") { Foreground = Brushes.Silver });
+                                tb.Inlines.Add(Path.GetFileName(p) + "\n");
+                            }
+                        }
+                        DiagPrintHelper(plugins, "duplicate_dlls", "\n\n🤨 These dlls exits in both folders: \n", tb, true);
+
+                        //DiagPrintHelper(plugins, "not_a_vsplugin", "\n\n🤨 Notice - Probably a Plugin dependency (not a VS Plugin): \n");
+                        DiagPrintHelper(plugins, "no_problems", "\n\n👍 Successfully loaded Plugins: \n", tb, false);
+
+                    }
+                    else
+                    {
+                        tb.Inlines.Add("Could not test plugins");
+                    }
+
+                    ScrollViewer.Content = richtextbox;
+                    AppIsWorking(false);
+                }
             }
             
         }

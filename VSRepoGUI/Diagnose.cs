@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 
 namespace VSRepoGUI
 {
@@ -131,10 +132,74 @@ namespace VSRepoGUI
                 dep.Exports.Add(exp_tmp[0].Trim());
                 if (exp_tmp[1].Trim().Contains("VapourSynthPluginInit"))
                     dep.IsVapourSynthPlugin = true;
+                if (exp_tmp[1].Trim().Contains("AvisynthPluginInit"))
+                    dep.IsAvisynthPlugin = true;
             }
             dep.Exports = dep.Exports.Distinct().ToList();
 
             return dep;
+        }
+
+
+        public Dictionary<string, List<string>> CheckDuplicateAvsScripts(string path) //Dictionary<string, List<string>>
+        {
+            var script_functions = new Dictionary<string, string>();
+            var script_functions_dups = new Dictionary<string, List<string>>();
+
+            //string pattern = @"function\s+([a-zA-Z_{1}][a-zA-Z0-9_]+).+[\s|\S](?=\()";
+            //string pattern = @"function\s+.+[\s|\S](?=\()";
+            //string pattern = @"^[f-fF-F]unction\s\w+";
+            //string pattern = @"^(?!#|assert|.+#.+function)(.+|)function\s+\w+"; // good
+            //string pattern = @"^(?!#|assert|.+#.+function)(.+|)function\s+\w+(\s+)?(?=\()"; // misses stuff in srestore.avsi and others
+            string pattern = @"^(?!#|assert|.+#.+function)(.+|)function\s+\w+(\s+|.{5})?(?=\()"; // best?
+            string[] filePaths = Directory.GetFiles(path, "*.avsi");
+
+            foreach (var file in filePaths)
+            {
+                Console.WriteLine(file);
+                foreach (Match m in Regex.Matches(File.ReadAllText(file, Encoding.UTF8), pattern, RegexOptions.IgnoreCase | RegexOptions.Multiline))
+                {
+                    var potential_function = m.Value.Trim();
+                    Console.WriteLine("'{0}' found at index {1}.", potential_function, m.Index);
+                    if (potential_function.Split(' ').Length == 2) // check for valid function (in case the regex finds an invalid string)
+                    {
+                        string script_func = potential_function.Split(' ')[1].Trim();
+                        //Console.WriteLine("'{0}' found at index {1}.", m.Value.Trim(), m.Index);
+                        if (script_functions.ContainsKey(script_func))
+                        {
+                            if (!script_functions_dups.ContainsKey(script_func))
+                            {
+                                script_functions_dups[script_func] = new List<string>() { script_functions[script_func] };
+                                if (!script_functions_dups[script_func].Contains(file)) // don't add the same file to list. Sometimes the same function call is also a comment.
+                                {
+                                    script_functions_dups[script_func].Add(file);
+                                }
+                            }
+                            else
+                            {
+                                if (!script_functions_dups[script_func].Contains(file)) // don't add the same file to list. Sometimes the same function call is also a comment.
+                                {
+                                    script_functions_dups[script_func].Add(file);
+                                }
+                            }
+                        }
+                        script_functions[script_func] = file;
+                    }
+                    else
+                    {
+                        Console.WriteLine("ERR '{0}' found at index {1}.", m.Value.Trim(), m.Index);
+                    }
+                }
+            }
+
+            //remove "duplicates" (with only 1 file entry). TODO check if this can be removed since the regex does not find commented functions anymore
+            var dups = new Dictionary<string, List<string>>();
+            foreach (var item in script_functions_dups)
+            {
+                if (item.Value.Count > 1)
+                    dups[item.Key] = item.Value;
+            }
+            return dups;
         }
 
 

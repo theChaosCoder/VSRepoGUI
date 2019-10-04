@@ -718,6 +718,18 @@ namespace VSRepoGUI
                     ManagementObjectSearcher mos = new ManagementObjectSearcher("root\\CIMV2", "SELECT * FROM Win32_Processor");
                     string cpu = mos.Get().OfType<ManagementObject>().FirstOrDefault()["Name"].ToString();
 
+                    string gpu = "not detected";
+                    ManagementObjectSearcher gpu_searcher = new ManagementObjectSearcher("SELECT * FROM Win32_VideoController");
+                    foreach (ManagementObject mo in gpu_searcher.Get())
+                    {
+                        PropertyData currentBitsPerPixel = mo.Properties["CurrentBitsPerPixel"];
+                        PropertyData description = mo.Properties["Description"];
+                        if (currentBitsPerPixel != null && description != null)
+                        {
+                            if (currentBitsPerPixel.Value != null)
+                                gpu = (string)description.Value;
+                        }
+                    }
 
                     tb.Inlines.Add(@"/!\ Only Plugins and no Scripts are tested /!\");
                     if (current_vs_installation_works)
@@ -726,6 +738,7 @@ namespace VSRepoGUI
                         tb.Inlines.Add(new Run("\n\nImporting VapourSynth in python failed! \n") { FontSize = 15, FontWeight = FontWeights.Bold, Foreground = Brushes.Red });
                     tb.Inlines.Add("\nOS: " + (osname != null ? osname.ToString() : "Unknown"));
                     tb.Inlines.Add("\nIs 64Bit OS?: " + System.Environment.Is64BitOperatingSystem);
+                    tb.Inlines.Add("\nGPU: " + gpu);
                     tb.Inlines.Add("\nCPU: " + cpu);
                     tb.Inlines.Add("\nCPU Cores: " + System.Environment.ProcessorCount);
 

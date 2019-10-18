@@ -6,7 +6,7 @@ using Newtonsoft.Json;
 
 namespace VSRepoGUI
 {
-    public partial class Settings
+    public partial class PortableSettings
     {
         [JsonProperty("Bin")]
         public string Bin { get; set; }
@@ -19,20 +19,20 @@ namespace VSRepoGUI
 
         private string settingsfile = "vsrepogui.json";
 
-        public Settings LoadLocalFile(string file)
+        public PortableSettings LoadLocalFile(string file)
         {
             this.settingsfile = file;
             return LoadLocalFile();
         }
 
-        public Settings LoadLocalFile()
+        public PortableSettings LoadLocalFile()
         {
-            if (File.Exists(settingsfile))
+            if (File.Exists(MakeFullPath(settingsfile)))
             {
-                var jsonString = File.ReadAllText(settingsfile);
+                var jsonString = File.ReadAllText(MakeFullPath(settingsfile));
                 try
                 {
-                    var settingsFile = JsonConvert.DeserializeObject<Settings>(jsonString);
+                    var settingsFile = JsonConvert.DeserializeObject<PortableSettings>(jsonString);
 
                     settingsFile.Bin = MakeFullPath(settingsFile.Bin);
                     settingsFile.Win32.Binaries = MakeFullPath(settingsFile.Win32.Binaries);

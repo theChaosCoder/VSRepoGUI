@@ -39,7 +39,7 @@ namespace VSRepoGUI
         public List<string> consolestdL = new List<string>();
 
         public string version = "v0.9";
-        public bool IsVsrepo { get; set; } = false; // else AVSRepo for Avisynth
+        public bool IsVsrepo { get; set; } = true; // else AVSRepo for Avisynth
         public string AppTitle { get; set; }
         public bool Win64 { get; set; }
         public PluginPaths Avs64Paths { get; set; }
@@ -178,6 +178,9 @@ namespace VSRepoGUI
             }
             else // Portable mode, valid avsrepogui.json found
             {
+                //TabablzControl doesn't support hiding or collapsing Tabitems. Hide "Settings" (last) tab if we are in avisynth portable mode	
+                TabablzControl.Items.RemoveAt(TabablzControl.Items.Count - 1); 
+
                 LabelPortable.Visibility = Visibility.Visible;
                 vsrepo.SetPortableMode(true);
                 vsrepo.python_bin = settings.Bin;
@@ -211,6 +214,9 @@ namespace VSRepoGUI
 
         private void InitVapoursynth()
         {
+            //TabablzControl doesn't support hiding or collapsing Tabitems. Hide "Settings" (last) tab if we are in vapoursynth mode	
+            TabablzControl.Items.RemoveAt(TabablzControl.Items.Count - 1);
+
             var settings = new PortableSettings().LoadLocalFile();
 
             var args = Environment.GetCommandLineArgs();

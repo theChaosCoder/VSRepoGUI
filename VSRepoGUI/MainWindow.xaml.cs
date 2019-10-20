@@ -1,4 +1,3 @@
-using Microsoft.Win32;
 using PropertyChanged;
 using System;
 using System.Collections.Generic;
@@ -7,13 +6,15 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Management;
-using System.Reflection;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using static VSRepoGUI.SettingsWindow;
 
 namespace VSRepoGUI
 {
@@ -38,15 +39,13 @@ namespace VSRepoGUI
         public List<string> consolestdL = new List<string>();
 
         public string version = "v0.9";
-        public bool IsVsrepo { get; set; } = true; // else AVSRepo for Avisynth
+        public bool IsVsrepo { get; set; } = false; // else AVSRepo for Avisynth
         public string AppTitle { get; set; }
-
-        private bool _win64;
-        public bool Win64
-        {
-            get { return _win64; }
-            set { _win64 = value; }
-        }
+        public bool Win64 { get; set; }
+        public PluginPaths Avs64Paths { get; set; }
+        public PluginPaths Avs32Paths { get; set; }
+        public bool showedFirstTimeSettingsAvs = false;
+        
 
         public class VsPlugins : INotifyPropertyChanged
         {
@@ -101,9 +100,18 @@ namespace VSRepoGUI
                 Height = SystemParameters.WorkArea.Height;
                 Top = 2;
             }
-            InitializeComponent();
 
             
+            InitializeComponent();
+            
+            // init Jot Settings Tracker
+            SettingsService.Tracker.Configure<MainWindow>().Property(w => w.showedFirstTimeSettingsAvs);
+            SettingsService.Tracker.Configure<MainWindow>().Property(w => w.Avs64Paths);
+            SettingsService.Tracker.Configure<MainWindow>().Property(w => w.Avs32Paths);
+            SettingsService.Tracker.Track(this);
+            //showedFirstTimeSettingsAvs = false;
+
+
             AddChatter(vsrepo);
             if (IsVsrepo)
             {
@@ -116,7 +124,21 @@ namespace VSRepoGUI
                 InitAvisynth();
             }
             Win64 = Environment.Is64BitOperatingSystem; // triggers checkbox changed event
-            //var wizardDialog = new SettingsWindow().ShowDialog();
+
+            // Show AviSynth plugin settings window on first start
+            if(!IsVsrepo && !showedFirstTimeSettingsAvs)
+            {
+                SettingsWindow wizardDialog = new SettingsWindow();
+                wizardDialog.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                _ = wizardDialog.ShowDialog();
+
+                if (wizardDialog != null)
+                {
+                    Avs32Paths = wizardDialog.Path32;
+                    Avs64Paths = wizardDialog.Path64;
+                    showedFirstTimeSettingsAvs = true;
+                }
+            }
         }
 
         private void InitAvisynth()
@@ -125,7 +147,8 @@ namespace VSRepoGUI
             Link_avsdoom9.Visibility = Visibility.Visible;
             Link_vsdoom9.Visibility = Visibility.Collapsed;
 
-            var settings = new Settings().LoadLocalFile("avsrepogui.json");
+            vsrepo.SetPortableMode(true); // avsrepo should always be called with -p since it doesn't know anything about avisynth plugin folders
+            var settings = new PortableSettings().LoadLocalFile("avsrepogui.json");
             var vsrepo_file = "avsrepo.exe";
             if (File.Exists(vsrepo_file))
             {
@@ -141,16 +164,22 @@ namespace VSRepoGUI
             {
                 AppIsWorking(true);
                 vsrepo.SetArch(Environment.Is64BitOperatingSystem);
+                vspackages_file = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName) + "\\avspackages.json"; // That means avsrepo.exe needs to be near avsrepogui
+                if (Avs32Paths != null)
+                {
+                    vsrepo.SetPaths(false, new Paths() { Binaries = Avs32Paths.Plugin, Scripts = Avs32Paths.Script, Definitions = vspackages_file });
+                }
+                if(Avs64Paths != null)
+                {
+                    vsrepo.SetPaths(true, new Paths() { Binaries = Avs64Paths.Plugin, Scripts = Avs64Paths.Script, Definitions = vspackages_file });
+                }
                 //Trigger GetPaths for 32/64 bit, they are cached in VsApi class anyway
                 _ = vsrepo.GetPaths(true).Definitions; _ = vsrepo.GetPaths(false).Definitions;
-                vspackages_file = vsrepo.GetPaths(Environment.Is64BitOperatingSystem).Definitions;
-                //Win64 = Environment.Is64BitOperatingSystem;
             }
-            else // Portable mode, valid vsrepogui.json found
+            else // Portable mode, valid avsrepogui.json found
             {
-                PortableMode = true;
                 LabelPortable.Visibility = Visibility.Visible;
-                vsrepo.SetPortableMode(PortableMode);
+                vsrepo.SetPortableMode(true);
                 vsrepo.python_bin = settings.Bin;
                 vspackages_file = Path.GetDirectoryName(settings.Bin) + "\\avspackages.json";
 
@@ -161,7 +190,7 @@ namespace VSRepoGUI
                 // Triggering  Win64 is now safe
                 //Win64 = Environment.Is64BitOperatingSystem;
             }
-
+            
             try
             {
                 Plugins.All = LoadLocalVspackage();
@@ -182,7 +211,7 @@ namespace VSRepoGUI
 
         private void InitVapoursynth()
         {
-            var settings = new Settings().LoadLocalFile();
+            var settings = new PortableSettings().LoadLocalFile();
 
             var args = Environment.GetCommandLineArgs();
             if (args.Length > 1)
@@ -249,7 +278,7 @@ namespace VSRepoGUI
                 vsrepo.SetPortableMode(PortableMode);
                 vsrepo.SetVsrepoPath(settings.Bin);
                 vspackages_file = Path.GetDirectoryName(settings.Bin) + "\\vspackages.json";
-
+                
                 // Set paths manually and DONT trigger Win64 onPropertyChanged yet
                 vsrepo.SetPaths(true, new Paths()  { Binaries = settings.Win64.Binaries, Scripts = settings.Win64.Scripts, Definitions = vspackages_file });
                 vsrepo.SetPaths(false, new Paths() { Binaries = settings.Win32.Binaries, Scripts = settings.Win32.Scripts, Definitions = vspackages_file });
@@ -258,7 +287,6 @@ namespace VSRepoGUI
                 //Win64 = Environment.Is64BitOperatingSystem;
             }
 
-            
             try
             {
                 Plugins.All = LoadLocalVspackage();
@@ -427,33 +455,41 @@ namespace VSRepoGUI
             string plugin = ((Package)button.DataContext).Namespace ?? ((Package)button.DataContext).Modulename;
             consolestd = "";
             consolestdL.Clear();
-            switch (plugin_status)
+            if(HasWriteAccessToFolder(CurrentPluginPath))
             {
-                case VsApi.PluginStatus.Installed:
-                    if (MessageBox.Show("Uninstall " + ((Package)button.DataContext).Name + "?", "Uninstall?", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
-                    {
-                        await vsrepo.UninstallAsync(plugin);
-                    }
-                    break;
-                case VsApi.PluginStatus.InstalledUnknown:
-                    if (MessageBox.Show("Your local file (with unknown version) has the same name as " + ((Package)button.DataContext).Name + " and will be overwritten, proceed?", "Force Upgrade?", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
-                    {
-                        await vsrepo.UpgradeAsync(plugin, force: true);
-                    }
-                    break;
-                case VsApi.PluginStatus.NotInstalled:
-                    await vsrepo.InstallAsync(plugin);
-                    break;
-                case VsApi.PluginStatus.UpdateAvailable:
-                    await vsrepo.UpgradeAsync(plugin);
-                    break;
-            }
+                switch (plugin_status)
+                {
+                    case VsApi.PluginStatus.Installed:
+                        if (MessageBox.Show("Uninstall " + ((Package)button.DataContext).Name + "?", "Uninstall?", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+                        {
+                            await vsrepo.UninstallAsync(plugin);
+                        }
+                        break;
+                    case VsApi.PluginStatus.InstalledUnknown:
+                        if (MessageBox.Show("Your local file (with unknown version) has the same name as " + ((Package)button.DataContext).Name + " and will be overwritten, proceed?", "Force Upgrade?", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+                        {
+                            await vsrepo.UpgradeAsync(plugin, force: true);
+                        }
+                        break;
+                    case VsApi.PluginStatus.NotInstalled:
+                        await vsrepo.InstallAsync(plugin);
+                        break;
+                    case VsApi.PluginStatus.UpdateAvailable:
+                        await vsrepo.UpgradeAsync(plugin);
+                        break;
+                }
+            
+            
           
-            ConsoleBox.Focus();
-            ConsoleBox.CaretIndex = ConsoleBox.Text.Length;
-            ConsoleBox.ScrollToEnd();
+                ConsoleBox.Focus();
+                ConsoleBox.CaretIndex = ConsoleBox.Text.Length;
+                ConsoleBox.ScrollToEnd();
 
-            await ReloadPluginsAsync();
+                await ReloadPluginsAsync();
+            } else
+            {
+                MessageBox.Show("Can't write to plugins folder. Restart program as admin.");
+            }
             AppIsWorking(false);
         }
 
@@ -497,6 +533,60 @@ namespace VSRepoGUI
             CurrentScriptPath = vsrepo.paths[Win64].Scripts;
             await ReloadPluginsAsync();
             AppIsWorking(false);
+        }
+
+        public static bool HasWriteAccessToFolder(string FilePath)
+        {
+            try
+            {
+                FileSystemSecurity security;
+                if (File.Exists(FilePath))
+                {
+                    security = File.GetAccessControl(FilePath);
+                }
+                else
+                {
+                    security = Directory.GetAccessControl(Path.GetDirectoryName(FilePath));
+                }
+                var rules = security.GetAccessRules(true, true, typeof(NTAccount));
+
+                var currentuser = new WindowsPrincipal(WindowsIdentity.GetCurrent());
+                bool result = false;
+                foreach (FileSystemAccessRule rule in rules)
+                {
+                    if (0 == (rule.FileSystemRights &
+                        (FileSystemRights.WriteData | FileSystemRights.Write)))
+                    {
+                        continue;
+                    }
+
+                    if (rule.IdentityReference.Value.StartsWith("S-1-"))
+                    {
+                        var sid = new SecurityIdentifier(rule.IdentityReference.Value);
+                        if (!currentuser.IsInRole(sid))
+                        {
+                            continue;
+                        }
+                    }
+                    else
+                    {
+                        if (!currentuser.IsInRole(rule.IdentityReference.Value))
+                        {
+                            continue;
+                        }
+                    }
+
+                    if (rule.AccessControlType == AccessControlType.Deny)
+                        return false;
+                    if (rule.AccessControlType == AccessControlType.Allow)
+                        result = true;
+                }
+                return result;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
 
@@ -548,7 +638,6 @@ namespace VSRepoGUI
         }
 
 
-
         /// <summary>
         /// Print a "block" of plugins, helper function
         /// </summary>
@@ -587,60 +676,88 @@ namespace VSRepoGUI
             // ##### AviSynth diagnose #####
             if (!IsVsrepo)
             {
-                AppIsWorking(true);
-
-                // Textoutput controls init
-                RichTextBox richtextbox = new RichTextBox();
-                FlowDocument flowdoc = new FlowDocument();
-                Paragraph tb = new Paragraph();
-
-                richtextbox.IsDocumentEnabled = true;
-                richtextbox.IsReadOnly = true;
-                tb.FontFamily = new FontFamily("Lucida Console");
-                tb.Padding = new Thickness(8);
-
-                flowdoc.Blocks.Add(tb);
-                richtextbox.Document = flowdoc;
-
-                var diag = new Diagnose("");
-                var script_dups = diag.CheckDuplicateAvsScripts(vsrepo.GetPaths(Win64).Scripts);
-
-
-                tb.Inlines.Add(new Run("Use ") { FontSize = 15, FontWeight = FontWeights.Bold, Foreground = Brushes.Red });
-                Hyperlink avsmeter = new Hyperlink() {
-                    IsEnabled = true,
-                    NavigateUri = new Uri("https://forum.doom9.org/showthread.php?t=173259")
-                };
-                avsmeter.RequestNavigate += new System.Windows.Navigation.RequestNavigateEventHandler(Hyperlink_open);
-                avsmeter.Inlines.Add(new Run("Avisynth Info Tool or AVSMeter") { FontSize = 15, FontWeight = FontWeights.Bold, Foreground = Brushes.Blue });
-                tb.Inlines.Add(avsmeter);
-                tb.Inlines.Add(new Run(" to detect other Avisynth problems. \n\n") { FontSize = 15, FontWeight = FontWeights.Bold, Foreground = Brushes.Red });
-                               
-
-                tb.Inlines.Add(new Run("\n\nDuplicate Function Name Detection \n") { FontSize = 14 });
-                tb.Inlines.Add(new Run("------------------------------------------------------------\n") { Foreground = Brushes.SlateBlue });
-                tb.Inlines.Add("\nPath of *.avsi files: " + vsrepo.GetPaths(Win64).Scripts);
-                tb.Inlines.Add("\nFound " + script_dups.Count + " potential conflicts: \n");
-                if (script_dups.Count > 0)
+                if (SettingsTab.IsSelected)
                 {
-                    foreach (var dup in script_dups)
+                    SettingsWindow wizardDialog = new SettingsWindow();
+                    wizardDialog.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                    _ = wizardDialog.ShowDialog();
+
+                    if (wizardDialog != null)
                     {
-                        tb.Inlines.Add("\nFunction name: ");
-                        tb.Inlines.Add(new Run(dup.Key + "\n") { FontWeight = FontWeights.Bold });
-                        foreach (var file in dup.Value)
+                        Avs32Paths = wizardDialog.Path32;
+                        Avs64Paths = wizardDialog.Path64;
+                        if (Avs32Paths != null)
                         {
-                            tb.Inlines.Add(new Run("\t" + Path.GetDirectoryName(file) + @"\") { Foreground = Brushes.Silver });
-                            tb.Inlines.Add(new Run(Path.GetFileName(file) + "\n"));
-                            //tb.Inlines.Add("\t - " + file + "\n");
+                            vsrepo.SetPaths(false, new Paths() { Binaries = Avs32Paths.Plugin, Scripts = Avs32Paths.Script, Definitions = vspackages_file });
+                        }
+                        if (Avs64Paths != null)
+                        {
+                            vsrepo.SetPaths(true, new Paths() { Binaries = Avs64Paths.Plugin, Scripts = Avs64Paths.Script, Definitions = vspackages_file });
+                        }
+                        CurrentPluginPath = vsrepo.paths[Win64].Binaries;
+                        CurrentScriptPath = vsrepo.paths[Win64].Scripts;
+                    }
+                    await ReloadPluginsAsync();
+                } 
+                else
+                {
+                    AppIsWorking(true);
+
+                    // Textoutput controls init
+                    RichTextBox richtextbox = new RichTextBox();
+                    FlowDocument flowdoc = new FlowDocument();
+                    Paragraph tb = new Paragraph();
+
+                    richtextbox.IsDocumentEnabled = true;
+                    richtextbox.IsReadOnly = true;
+                    tb.FontFamily = new FontFamily("Lucida Console");
+                    tb.Padding = new Thickness(8);
+
+                    flowdoc.Blocks.Add(tb);
+                    richtextbox.Document = flowdoc;
+
+                    var diag = new Diagnose("");
+                    var script_dups = diag.CheckDuplicateAvsScripts(vsrepo.GetPaths(Win64).Scripts);
+
+
+                    tb.Inlines.Add(new Run("Use ") { FontSize = 15, FontWeight = FontWeights.Bold, Foreground = Brushes.Red });
+                    Hyperlink avsmeter = new Hyperlink()
+                    {
+                        IsEnabled = true,
+                        NavigateUri = new Uri("https://forum.doom9.org/showthread.php?t=173259")
+                    };
+                    avsmeter.RequestNavigate += new System.Windows.Navigation.RequestNavigateEventHandler(Hyperlink_open);
+                    avsmeter.Inlines.Add(new Run("Avisynth Info Tool or AVSMeter") { FontSize = 15, FontWeight = FontWeights.Bold, Foreground = Brushes.Blue });
+                    tb.Inlines.Add(avsmeter);
+                    tb.Inlines.Add(new Run(" to detect other Avisynth problems. \n\n") { FontSize = 15, FontWeight = FontWeights.Bold, Foreground = Brushes.Red });
+
+
+                    tb.Inlines.Add(new Run("\n\nDuplicate Function Name Detection \n") { FontSize = 14 });
+                    tb.Inlines.Add(new Run("------------------------------------------------------------\n") { Foreground = Brushes.SlateBlue });
+                    tb.Inlines.Add("\nPath of *.avsi files: " + vsrepo.GetPaths(Win64).Scripts);
+                    tb.Inlines.Add("\nFound " + script_dups.Count + " potential conflicts: \n");
+                    if (script_dups.Count > 0)
+                    {
+                        foreach (var dup in script_dups)
+                        {
+                            tb.Inlines.Add("\nFunction name: ");
+                            tb.Inlines.Add(new Run(dup.Key + "\n") { FontWeight = FontWeights.Bold });
+                            foreach (var file in dup.Value)
+                            {
+                                tb.Inlines.Add(new Run("\t" + Path.GetDirectoryName(file) + @"\") { Foreground = Brushes.Silver });
+                                tb.Inlines.Add(new Run(Path.GetFileName(file) + "\n"));
+                            }
                         }
                     }
-                } else
-                {
-                    tb.Inlines.Add("No duplicate functions found in *.avsi files");
-                }
+                    else
+                    {
+                        tb.Inlines.Add(new Run("\nNo duplicate functions found in *.avsi files") { FontWeight = FontWeights.Bold, Foreground = Brushes.Green });
+                    }
 
-                ScrollViewer.Content = richtextbox;
-                AppIsWorking(false);
+                    ScrollViewer.Content = richtextbox;
+                    AppIsWorking(false);
+                }
+                
             }
 
             // ##### Vapoursynth diagnose #####
@@ -931,6 +1048,7 @@ namespace VSRepoGUI
             }
             
         }
+
     }
 
 

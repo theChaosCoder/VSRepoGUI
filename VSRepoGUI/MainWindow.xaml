@@ -241,6 +241,8 @@
                 <ScrollViewer VerticalAlignment="Top" x:Name="ScrollViewer">
                     <TextBox x:Name="TextBlock_Diagnose" TextWrapping="Wrap" IsReadOnly="True" Margin="8" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto" FontFamily="Lucida Console">Loading...</TextBox>
                 </ScrollViewer>
+            </TabItem>
+            <TabItem Header="Settings" x:Name="SettingsTab">
                 
             </TabItem>
         </dragablz:TabablzControl>

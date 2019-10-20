@@ -7,7 +7,6 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using System.Text.RegularExpressions;
 
 namespace VSRepoGUI
 {
@@ -56,6 +55,10 @@ namespace VSRepoGUI
             dllfiles.Add("wrong_arch", (from file in packages
                                         where file[1].Contains("returned 193")
                                         select Path.Combine(path, file[0])).OrderBy(f => f).ToList());
+            
+            dllfiles.Add("incompatible_dependency", (from file in packages
+                                        where file[1].Contains("returned 127")
+                                        select Path.Combine(path, file[0])).OrderBy(f => f).ToList());
 
             dllfiles.Add("missing_dependency", (from file in packages
                                         where file[1].Contains("returned 126")
@@ -66,7 +69,7 @@ namespace VSRepoGUI
                                         select Path.Combine(path, file[0])).OrderBy(f => f).ToList());
             
             dllfiles.Add("others", (from file in packages
-                                    where !(file[1].Contains("returned 193") || file[1].Contains("No entry point found") || file[1].Contains("already loaded") || file[1].Contains("returned 126") || file[1].Contains("already populated"))
+                                    where !(file[1].Contains("returned 193") || file[1].Contains("No entry point found") || file[1].Contains("already loaded") || file[1].Contains("returned 126") || file[1].Contains("returned 127") || file[1].Contains("already populated"))
                                     select Path.Combine(path, file[0])).OrderBy(f => f).ToList());
             return dllfiles;
         }

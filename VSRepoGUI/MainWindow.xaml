@@ -25,6 +25,7 @@
         <converters:LabelStatusVisibilityConverter x:Key="VisText" />
         <converters:DateUtcConverter x:Key="DateFormat" />
         <converters:BoolToCollapsedConverter x:Key="BoolToCollapsedConverter" />
+        <converters:NamespaceModulenameText x:Key="NamespaceModulenameText" />
     </Window.Resources>
 
     <Grid>
@@ -46,7 +47,7 @@
             </DataTemplate>
             <DataTemplate x:Key="DateTemplateNamespaceLink" x:Name="DateTemplateNamespaceLink">
                 <TextBlock><Hyperlink NavigateUri="https:\\github.com" RequestNavigate="Hyperlink_namespace">
-                    <Run Text="{Binding Namespace}"/>
+                    <Run Text="{Binding ., Converter={StaticResource NamespaceModulenameText}}"/>
                 </Hyperlink></TextBlock>
             </DataTemplate>
             <DataTemplate x:Key="DateTemplateInstall" x:Name="DateTemplateInstall">

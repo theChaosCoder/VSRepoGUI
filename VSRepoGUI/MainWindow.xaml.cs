@@ -618,7 +618,7 @@ namespace VSRepoGUI
         private void Hyperlink_namespace(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
         {
             var hyperlink = sender as Hyperlink;
-            string uri = e.Uri + "vapoursynth/vsrepo/tree/master/local/" + ((Package)hyperlink.DataContext).Namespace + ".json";
+            string uri = e.Uri + "vapoursynth/vsrepo/tree/master/local/" + (((Package)hyperlink.DataContext).Namespace ?? ((Package)hyperlink.DataContext).Modulename).ToLower() + ".json";
             Process.Start(uri);
         }
 

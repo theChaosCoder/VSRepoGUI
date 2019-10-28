@@ -46,7 +46,7 @@
                 </StackPanel>
             </DataTemplate>
             <DataTemplate x:Key="DateTemplateNamespaceLink" x:Name="DateTemplateNamespaceLink">
-                <TextBlock><Hyperlink NavigateUri="https:\\github.com" RequestNavigate="Hyperlink_namespace">
+                <TextBlock><Hyperlink NavigateUri="" RequestNavigate="Hyperlink_namespace">
                     <Run Text="{Binding ., Converter={StaticResource NamespaceModulenameText}}"/>
                 </Hyperlink></TextBlock>
             </DataTemplate>

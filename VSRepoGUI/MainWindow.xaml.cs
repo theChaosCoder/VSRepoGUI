@@ -617,9 +617,11 @@ namespace VSRepoGUI
 
         private void Hyperlink_namespace(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
         {
-            var hyperlink = sender as Hyperlink;
-            string uri = e.Uri + "vapoursynth/vsrepo/tree/master/local/" + (((Package)hyperlink.DataContext).Namespace ?? ((Package)hyperlink.DataContext).Modulename).ToLower() + ".json";
-            Process.Start(uri);
+            var package = (Package)(sender as Hyperlink).DataContext;
+            if(IsVsrepo)
+                Process.Start("https://github.com/vapoursynth/vsrepo/tree/master/local/" + (package.Namespace ?? package.Modulename).ToLower() + ".json");
+            else
+                Process.Start("https://github.com/theChaosCoder/avsrepo/tree/master/local/" + (package.Namespace ?? package.Modulename).ToLower() + ".json");
         }
 
         private void Hyperlink_Click_Plugins(object sender, RoutedEventArgs e)

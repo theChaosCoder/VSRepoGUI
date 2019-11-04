@@ -1,4 +1,4 @@
 # VSRepoGUI
 A GUI for VSRepo
 
-![VSRepoGUI](https://i.imgur.com/8w19g56.png)
+![VSRepoGUI](https://i.imgur.com/OA37k7H.png)

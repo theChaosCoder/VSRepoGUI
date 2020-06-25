@@ -11,7 +11,6 @@ namespace VSRepoGUI
 {
     public class VsApi : INotifyPropertyChanged
     {
-        private bool IsVsrepo;
         private string portable = "";
         private object result;
         public enum PluginStatus : int { NotInstalled, Installed, InstalledUnknown, UpdateAvailable };
@@ -22,10 +21,7 @@ namespace VSRepoGUI
         public string python_bin = "python.exe";
         public event PropertyChangedEventHandler PropertyChanged;
 
-        public VsApi(bool IsVsrepo = true)
-        {
-            this.IsVsrepo = IsVsrepo;
-        }
+
 
         public async Task UninstallAsync(string plugin)
         {
@@ -148,11 +144,7 @@ namespace VSRepoGUI
 
         private object Run(string operation, string plugins = "")
         {
-            string args;
-            if (IsVsrepo)
-                args = String.Format("\"{0}\" {1} {2} {3} {4} {5}", vsrepo_path, portable, getCustomPaths(), getTarget(operation), operation, plugins);
-            else
-                args = String.Format("{0} {1} {2} {3}", getCustomPaths(), getTarget(operation), operation, plugins); // avsrepo.exe currently uses always the -p arg so we don't set it here.
+            string args = String.Format("\"{0}\" {1} {2} {3} {4} {5}", vsrepo_path, portable, getCustomPaths(), getTarget(operation), operation, plugins);
 
             var process = new Process()
             {

@@ -38,7 +38,7 @@ namespace VSRepoGUI
         public string consolestd { get; set; }
         public List<string> consolestdL = new List<string>();
 
-        public string version = "v0.9";
+        public string version = "v0.9.1";
         public bool IsVsrepo { get; set; } = true; // else AVSRepo for Avisynth
         public string AppTitle { get; set; }
         public bool Win64 { get; set; }

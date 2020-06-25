@@ -19,6 +19,8 @@ namespace VSRepoGUI
         public string VapourSynthDLL { get; set; }
         public string Version { get; set; }
         public string VSScriptDLL { get; set; }
+        public string VSPipeEXE { get; set; }
+        public string VSRepoPY { get; set; }
 
         public VsRegistry GetRegistry(RegistryKey regkey, string subkey)
         {
@@ -46,6 +48,10 @@ namespace VSRepoGUI
                         Version = (string)key.GetValue("Version"); break;
                     case "VSScriptDLL":
                         VSScriptDLL = (string)key.GetValue("VSScriptDLL"); break;
+                    case "VSPipeEXE":
+                        VSPipeEXE = (string)key.GetValue("VSPipeEXE"); break;
+                    case "VSRepoPY":
+                        VSRepoPY = (string)key.GetValue("VSRepoPY"); break;
                 }
             }
             return this;

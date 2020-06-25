@@ -90,7 +90,7 @@
                 </Label.Effect> Portable Mode</Label>
 
             <StackPanel Grid.RowSpan="2" Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Margin="138,0,0,0">
-                <TextBox x:Name="searchBox" Width="200"  Text="Search" TextChanged="TextBox_TextChanged" GotFocus="TextBox_GotFocus"/>
+                <TextBox x:Name="searchBox" Width="200"  Text="Search" TextChanged="TextBox_TextChanged" GotFocus="TextBox_GotFocus" Margin="0,63,0,0" />
                 <CheckBox HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="5,0,5,3" Checked="HideInstalled_Checked" Unchecked="HideInstalled_Unchecked" IsChecked="{Binding HideInstalled, Mode=TwoWay, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type local:MainWindow}}}" Visibility="Collapsed">Hide Installed</CheckBox>
                 <CheckBox IsEnabled="{Binding IsNotWorking}" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="5,0,5,3" IsChecked="{Binding Win64}" Checked="CheckBox_Win64_Checked" Unchecked="CheckBox_Win64_Unchecked">Win64</CheckBox>
             </StackPanel>

@@ -67,6 +67,10 @@ namespace VSRepoGUI
                     Binaries = result[1],
                     Scripts = result[2]
                 };
+                if(result.Count == 4)
+                {
+                    _paths.DistInfos = result[3];
+                }
                 paths.Add(isWin64, _paths);
             }
             return paths[isWin64];
@@ -235,6 +239,7 @@ namespace VSRepoGUI
         public string Definitions;
         public string Binaries;
         public string Scripts;
+        public string DistInfos;
     }
 
 }

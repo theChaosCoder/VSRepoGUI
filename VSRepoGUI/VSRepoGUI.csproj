@@ -117,7 +117,6 @@
     <Compile Include="SettingsService.cs" />
     <Compile Include="VsApi.cs" />
     <Compile Include="Vspackage.cs" />
-    <Compile Include="AvsRegistry.cs" />
     <Compile Include="VsRegistry.cs" />
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>

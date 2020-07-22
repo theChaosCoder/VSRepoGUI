@@ -76,7 +76,7 @@ namespace VSRepoGUI
 
         public async Task<string> GetVapoursynthVersion()
         {
-            return await Task.Run(() => run_python("import vapoursynth as vs; core = vs.get_core(); print(core.version())"));
+            return await Task.Run(() => run_python("import vapoursynth as vs; print(vs.core.version())"));
         }
 
 
@@ -213,7 +213,7 @@ namespace VSRepoGUI
             return string.Format(
 @"import sys, os, glob, json
 import vapoursynth as vs
-core = vs.get_core();
+core = vs.core;
 path = path = r'{0}'
 plugin_dir = glob.glob(path + '/*.dll')
 error = []

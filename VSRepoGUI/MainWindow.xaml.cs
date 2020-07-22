@@ -655,6 +655,8 @@ namespace VSRepoGUI
 
                 ManagementObjectSearcher mos = new ManagementObjectSearcher("root\\CIMV2", "SELECT * FROM Win32_Processor");
                 string cpu = mos.Get().OfType<ManagementObject>().FirstOrDefault()["Name"].ToString();
+                string cpu_core = mos.Get().OfType<ManagementObject>().FirstOrDefault()["NumberOfCores"].ToString();
+                string cpu_logical_processors = mos.Get().OfType<ManagementObject>().FirstOrDefault()["NumberOfLogicalProcessors"].ToString();
 
                 string gpu = "not detected";
                 ManagementObjectSearcher gpu_searcher = new ManagementObjectSearcher("SELECT * FROM Win32_VideoController");
@@ -675,10 +677,11 @@ namespace VSRepoGUI
                 else
                     tb.Inlines.Add(new Run("\n\nImporting VapourSynth in python failed! \n") { FontSize = 15, FontWeight = FontWeights.Bold, Foreground = Brushes.Red });
                 tb.Inlines.Add("\nOS: " + (osname != null ? osname.ToString() : "Unknown"));
-                tb.Inlines.Add("\nIs 64Bit OS?: " + System.Environment.Is64BitOperatingSystem);
+                tb.Inlines.Add("\nIs 64Bit OS: " + (System.Environment.Is64BitOperatingSystem ? "Yes" : "No"));
                 tb.Inlines.Add("\nGPU: " + gpu);
                 tb.Inlines.Add("\nCPU: " + cpu);
-                tb.Inlines.Add("\nCPU Cores: " + System.Environment.ProcessorCount);
+                tb.Inlines.Add("\nCPU Cores: " + cpu_core);
+                tb.Inlines.Add("\nLogical Processors: " + cpu_logical_processors);
 
                 tb.Inlines.Add(new Run("\n\nPython location: ") { FontSize = 12, FontWeight = FontWeights.Bold });
                 tb.Inlines.Add(await diag.GetPythonLocation()); //vsrepo.python_bin

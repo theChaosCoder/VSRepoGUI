@@ -655,8 +655,10 @@ namespace VSRepoGUI
 
                 ManagementObjectSearcher mos = new ManagementObjectSearcher("root\\CIMV2", "SELECT * FROM Win32_Processor");
                 string cpu = mos.Get().OfType<ManagementObject>().FirstOrDefault()["Name"].ToString();
-                string cpu_core = mos.Get().OfType<ManagementObject>().FirstOrDefault()["NumberOfCores"].ToString();
-                string cpu_logical_processors = mos.Get().OfType<ManagementObject>().FirstOrDefault()["NumberOfLogicalProcessors"].ToString();
+                var cpu_cores = 0;
+                var cpu_logical_processors = 0;
+                var cpu_sockets = 0;
+               
 
                 string gpu = "not detected";
                 ManagementObjectSearcher gpu_searcher = new ManagementObjectSearcher("SELECT * FROM Win32_VideoController");
@@ -680,7 +682,30 @@ namespace VSRepoGUI
                 tb.Inlines.Add("\nIs 64Bit OS: " + (System.Environment.Is64BitOperatingSystem ? "Yes" : "No"));
                 tb.Inlines.Add("\nGPU: " + gpu);
                 tb.Inlines.Add("\nCPU: " + cpu);
-                tb.Inlines.Add("\nCPU Cores: " + cpu_core);
+
+                ManagementObjectSearcher objOSDetails = new ManagementObjectSearcher("SELECT * FROM Win32_Processor");
+                foreach (ManagementObject mo in objOSDetails.Get())
+                {
+                    foreach (PropertyData prop in mo.Properties)
+                    {
+                        if (prop.Name == "DeviceID")
+                        {
+                            cpu_sockets += 1;
+                        }
+                        if (prop.Name == "NumberOfCores")
+                        {
+                            cpu_cores += int.Parse(prop.Value.ToString());
+                        }
+                        if (prop.Name == "NumberOfLogicalProcessors")
+                        {
+                            cpu_logical_processors += int.Parse(prop.Value.ToString());
+                        }
+                       // Console.WriteLine("{0}: {1}", prop.Name, prop.Value);
+                       // tb.Inlines.Add("\n" + prop.Name + ": " + prop.Value);
+                    }
+                }
+
+                tb.Inlines.Add("\nCPU Cores: " + cpu_cores);
                 tb.Inlines.Add("\nLogical Processors: " + cpu_logical_processors);
 
                 tb.Inlines.Add(new Run("\n\nPython location: ") { FontSize = 12, FontWeight = FontWeights.Bold });

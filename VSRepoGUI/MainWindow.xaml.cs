@@ -554,7 +554,7 @@ namespace VSRepoGUI
         /// <param name="errmsg"></param>
         /// <param name="tb"></param>
         /// <param name="fullpath"></param>
-        private void DiagPrintHelper(Dictionary<string, List<string>> plugins, string id, string errmsg, Paragraph tb, bool fullpath = false)
+        private static void DiagPrintHelper(Dictionary<string, List<string>> plugins, string id, string errmsg, Paragraph tb, bool fullpath = false)
         {
             if (plugins[id].Count() > 0)
             {
@@ -650,63 +650,45 @@ namespace VSRepoGUI
                 }
 
 
-                var osname = (from x in new ManagementObjectSearcher("SELECT Caption FROM Win32_OperatingSystem").Get().Cast<ManagementObject>()
-                                select x.GetPropertyValue("Caption")).FirstOrDefault();
-
-                ManagementObjectSearcher mos = new ManagementObjectSearcher("root\\CIMV2", "SELECT * FROM Win32_Processor");
-                string cpu = mos.Get().OfType<ManagementObject>().FirstOrDefault()["Name"].ToString();
-                var cpu_cores = 0;
-                var cpu_logical_processors = 0;
-                var cpu_sockets = 0;
-               
-
-                string gpu = "not detected";
-                ManagementObjectSearcher gpu_searcher = new ManagementObjectSearcher("SELECT * FROM Win32_VideoController");
-                foreach (ManagementObject mo in gpu_searcher.Get())
-                {
-                    PropertyData currentBitsPerPixel = mo.Properties["CurrentBitsPerPixel"];
-                    PropertyData description = mo.Properties["Description"];
-                    if (currentBitsPerPixel != null && description != null)
-                    {
-                        if (currentBitsPerPixel.Value != null)
-                            gpu = (string)description.Value;
-                    }
-                }
+                var SystemInfo = new SystemInfo();
 
                 tb.Inlines.Add(@"/!\ Only Plugins and no Scripts are tested /!\");
                 if (current_vs_installation_works)
                     tb.Inlines.Add("\n" + version);
                 else
                     tb.Inlines.Add(new Run("\n\nImporting VapourSynth in python failed! \n") { FontSize = 15, FontWeight = FontWeights.Bold, Foreground = Brushes.Red });
-                tb.Inlines.Add("\nOS: " + (osname != null ? osname.ToString() : "Unknown"));
-                tb.Inlines.Add("\nIs 64Bit OS: " + (System.Environment.Is64BitOperatingSystem ? "Yes" : "No"));
-                tb.Inlines.Add("\nGPU: " + gpu);
-                tb.Inlines.Add("\nCPU: " + cpu);
-
-                ManagementObjectSearcher objOSDetails = new ManagementObjectSearcher("SELECT * FROM Win32_Processor");
-                foreach (ManagementObject mo in objOSDetails.Get())
+                tb.Inlines.Add("\nOS: " + SystemInfo.OS);
+                tb.Inlines.Add("\n64Bit OS: " + (SystemInfo.Is64Bit ? "Yes" : "No"));
+                if(SystemInfo.HasMultipleGpus)
                 {
-                    foreach (PropertyData prop in mo.Properties)
+                    foreach(Gpu gpu in SystemInfo.Gpus)
                     {
-                        if (prop.Name == "DeviceID")
-                        {
-                            cpu_sockets += 1;
-                        }
-                        if (prop.Name == "NumberOfCores")
-                        {
-                            cpu_cores += int.Parse(prop.Value.ToString());
-                        }
-                        if (prop.Name == "NumberOfLogicalProcessors")
-                        {
-                            cpu_logical_processors += int.Parse(prop.Value.ToString());
-                        }
-                       // Console.WriteLine("{0}: {1}", prop.Name, prop.Value);
-                       // tb.Inlines.Add("\n" + prop.Name + ": " + prop.Value);
+                        int i = 0;
+                        tb.Inlines.Add("\nGPU"+ (++i) +": " + gpu.Description);
                     }
+                    
+                } else
+                {
+                    tb.Inlines.Add("\nGPU: " + SystemInfo.Gpu.Description);
+                }
+                if (SystemInfo.HasMultipleCpus)
+                {
+                    foreach (Cpu cpu in SystemInfo.Cpus)
+                    {
+                        int i = 0;
+                        tb.Inlines.Add("\nCPU" + (++i) + ": " + cpu.Name);
+                    }
+                    tb.Inlines.Add("\nTotal CPU Cores: " + SystemInfo.TotalCpuCores);
+                    tb.Inlines.Add("\nTotal Logical Processors: " + SystemInfo.TotalLogicalProcessors);
+                }
+                else
+                {
+                    tb.Inlines.Add("\nCPU: " + SystemInfo.Cpu.Name);
+                    tb.Inlines.Add("\nCPU Cores: " + SystemInfo.TotalCpuCores);
+                    tb.Inlines.Add("\nLogical Processors: " + SystemInfo.TotalLogicalProcessors);
                 }
 
-                tb.Inlines.Add("\nCPU Cores: " + cpu_cores);
-                tb.Inlines.Add("\nLogical Processors: " + cpu_logical_processors);
+                tb.Inlines.Add("\nRAM: " + SystemInfo.Ram.Size + " GB");
 
                 tb.Inlines.Add(new Run("\n\nPython location: ") { FontSize = 12, FontWeight = FontWeights.Bold });
                 tb.Inlines.Add(await diag.GetPythonLocation()); //vsrepo.python_bin

@@ -661,10 +661,10 @@ namespace VSRepoGUI
                 tb.Inlines.Add("\n64Bit OS: " + (SystemInfo.Is64Bit ? "Yes" : "No"));
                 if(SystemInfo.HasMultipleGpus)
                 {
-                    foreach(Gpu gpu in SystemInfo.Gpus)
+                    int i = 0;
+                    foreach (Gpu gpu in SystemInfo.Gpus) 
                     {
-                        int i = 0;
-                        tb.Inlines.Add("\nGPU"+ (++i) +": " + gpu.Description);
+                        tb.Inlines.Add("\nGPU"+ (i++) +": " + gpu.Description);
                     }
                     
                 } else
@@ -673,10 +673,10 @@ namespace VSRepoGUI
                 }
                 if (SystemInfo.HasMultipleCpus)
                 {
+                    int i = 0;
                     foreach (Cpu cpu in SystemInfo.Cpus)
                     {
-                        int i = 0;
-                        tb.Inlines.Add("\nCPU" + (++i) + ": " + cpu.Name);
+                        tb.Inlines.Add("\nCPU" + (i++) + ": " + cpu.Name);
                     }
                     tb.Inlines.Add("\nTotal CPU Cores: " + SystemInfo.TotalCpuCores);
                     tb.Inlines.Add("\nTotal Logical Processors: " + SystemInfo.TotalLogicalProcessors);

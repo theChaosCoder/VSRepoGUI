@@ -37,7 +37,7 @@ namespace VSRepoGUI
         public string consolestd { get; set; }
         public List<string> consolestdL = new List<string>();
 
-        public string version = "v0.9.1";
+        public string version = "v0.9.2";
         public string AppTitle { get; set; }
         public bool Win64 { get; set; }
         
@@ -666,8 +666,8 @@ namespace VSRepoGUI
                     {
                         tb.Inlines.Add("\nGPU"+ (i++) +": " + gpu.Description);
                     }
-                    
-                } else
+                }
+                else
                 {
                     tb.Inlines.Add("\nGPU: " + SystemInfo.Gpu.Description);
                 }

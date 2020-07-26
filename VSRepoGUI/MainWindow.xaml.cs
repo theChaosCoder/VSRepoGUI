@@ -662,7 +662,7 @@ namespace VSRepoGUI
                 if(SystemInfo.HasMultipleGpus)
                 {
                     int i = 0;
-                    foreach (Gpu gpu in SystemInfo.Gpus) 
+                    foreach (GPU gpu in SystemInfo.Gpus) 
                     {
                         tb.Inlines.Add("\nGPU"+ (i++) +": " + gpu.Description);
                     }
@@ -674,7 +674,7 @@ namespace VSRepoGUI
                 if (SystemInfo.HasMultipleCpus)
                 {
                     int i = 0;
-                    foreach (Cpu cpu in SystemInfo.Cpus)
+                    foreach (CPU cpu in SystemInfo.Cpus)
                     {
                         tb.Inlines.Add("\nCPU" + (i++) + ": " + cpu.Name);
                     }

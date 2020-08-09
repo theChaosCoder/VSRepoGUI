@@ -5,7 +5,6 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Management;
 using System.Security.AccessControl;
 using System.Security.Principal;
 using System.Threading.Tasks;
@@ -13,7 +12,6 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
 
 namespace VSRepoGUI
 {
@@ -135,14 +133,15 @@ namespace VSRepoGUI
                 else //is not in PATH
                 {
                     // Get PythonPath from VapourSynth registry and test if it's callable
-                    var pybin = GetPythonLocation(vsregistry.GetAvailablePythonPath());
+                    //var pybin = GetPythonLocation(vsregistry.GetAvailablePythonPath());
+                    var pybin = vsregistry.GetAvailablePythonPath() + "\\python.exe";
                     
-                    if (!String.IsNullOrEmpty(pybin))
+                    if (!String.IsNullOrEmpty(pybin) && IsPythonCallable(pybin))
                     {
                         vsrepo.python_bin = pybin;
                     } else
                     {
-                        MessageBox.Show(@"It seems that Python is not installed or not set in your PATH variable. Add Python to PATH or call like this: 'VSRepoGui.exe path\to\python.exe'");
+                        MessageBox.Show(@"It seems that Python is not installed or not set in your PATH variable. Add Python to PATH or call like this: " + Environment.NewLine + @"'VSRepoGui.exe path\to\python.exe'");
                         System.Environment.Exit(1);
                     }
                     
@@ -232,18 +231,21 @@ namespace VSRepoGUI
              }
          }
 
-        private bool IsPythonCallable()
+        private bool IsPythonCallable(string pypath = "python.exe")
         {
             try
             {
                 Process p = new Process();
-                p.StartInfo.FileName = "python.exe";
+                p.StartInfo.FileName = pypath;
                 p.StartInfo.Arguments = "-V";
                 p.StartInfo.UseShellExecute = false;
                 p.StartInfo.CreateNoWindow = true;
                 p.Start();
                 p.WaitForExit();
-                return true;
+                if (p.ExitCode == 0)
+                    return true;
+                else
+                    return false;
             }
             catch
             {

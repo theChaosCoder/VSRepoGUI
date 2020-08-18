@@ -58,6 +58,9 @@ namespace VSRepoGUI
         [JsonProperty("modulename", NullValueHandling = NullValueHandling.Ignore)]
         public string Modulename { get; set; }
 
+        [JsonProperty("wheelname", NullValueHandling = NullValueHandling.Ignore)]
+        public string Wheelname { get; set; }
+
         [JsonProperty("dependencies", NullValueHandling = NullValueHandling.Ignore)]
         public string[] Dependencies { get; set; }
 
@@ -85,6 +88,9 @@ namespace VSRepoGUI
 
         [JsonProperty("script", NullValueHandling = NullValueHandling.Ignore)]
         public Script Script { get; set; }
+
+        [JsonProperty("wheel", NullValueHandling = NullValueHandling.Ignore)]
+        public Script Wheel { get; set; }
     }
 
     public partial class Script
@@ -94,6 +100,13 @@ namespace VSRepoGUI
 
         [JsonProperty("files")]
         public Dictionary<string, string[]> Files { get; set; }
+    }
+    public partial class Wheel
+    {
+        [JsonProperty("url")]
+        public Uri Url { get; set; }
+        [JsonProperty("hash")]
+        public string Hash { get; set; }
     }
 
     public partial class Win32
@@ -114,7 +127,7 @@ namespace VSRepoGUI
         public Dictionary<string, string[]> Files { get; set; }
     }
 
-    public enum TypeEnum { PyScript, VsPlugin };
+    public enum TypeEnum { PyScript, VsPlugin, PyWheel };
 
     public partial class Vspackage
     {
@@ -154,6 +167,8 @@ namespace VSRepoGUI
                     return TypeEnum.PyScript;
                 case "VSPlugin":
                     return TypeEnum.VsPlugin;
+                case "PyWheel":
+                    return TypeEnum.PyWheel;
             }
             throw new Exception("Cannot unmarshal type TypeEnum");
         }
@@ -173,6 +188,9 @@ namespace VSRepoGUI
                     return;
                 case TypeEnum.VsPlugin:
                     serializer.Serialize(writer, "VSPlugin");
+                    return;
+                case TypeEnum.PyWheel:
+                    serializer.Serialize(writer, "PyWheel");
                     return;
             }
             throw new Exception("Cannot marshal type TypeEnum");

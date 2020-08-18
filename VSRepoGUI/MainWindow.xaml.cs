@@ -326,9 +326,9 @@ namespace VSRepoGUI
         {
             var _plugins = LoadLocalVspackage();
             if(Win64)
-                _plugins = Array.FindAll(_plugins, c => c.Releases[0].Win64 != null || c.Releases[0].Script != null);
+                _plugins = Array.FindAll(_plugins, c => c.Releases[0].Win64 != null || c.Releases[0].Script != null || c.Releases[0].Wheel != null);
             else
-                _plugins = Array.FindAll(_plugins, c => c.Releases[0].Win32 != null || c.Releases[0].Script != null);
+                _plugins = Array.FindAll(_plugins, c => c.Releases[0].Win32 != null || c.Releases[0].Script != null || c.Releases[0].Wheel != null);
 
             var plugins_installed = await vsrepo.GetInstalledAsync();
 

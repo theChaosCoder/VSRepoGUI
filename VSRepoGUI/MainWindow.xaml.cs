@@ -183,7 +183,7 @@ namespace VSRepoGUI
                 PortableMode = true;
                 vsrepo.SetPortableMode(PortableMode);
                 vsrepo.SetVsrepoPath(settings.Bin);
-                vspackages_file = Path.GetDirectoryName(settings.Bin) + "\\vspackages.json";
+                vspackages_file = Path.GetDirectoryName(settings.Bin) + "\\vspackages3.json";
                 
                 // Set paths manually and DONT trigger Win64 onPropertyChanged yet
                 vsrepo.SetPaths(true, new Paths()  { Binaries = settings.Win64.Binaries, Scripts = settings.Win64.Scripts, Definitions = vspackages_file });

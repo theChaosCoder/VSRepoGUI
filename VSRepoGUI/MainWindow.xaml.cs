@@ -35,7 +35,7 @@ namespace VSRepoGUI
         public string consolestd { get; set; }
         public List<string> consolestdL = new List<string>();
 
-        public string version = "v0.9.4";
+        public string version = "v0.9.6";
         public string AppTitle { get; set; }
         public bool Win64 { get; set; }
         

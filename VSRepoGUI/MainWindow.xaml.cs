@@ -163,6 +163,10 @@ namespace VSRepoGUI
                 if (File.Exists(vsrepo_file))
                 {
                     vsrepo.SetVsrepoPath(vsrepo_file);
+                    if (!File.Exists(vsrepo_file + "\\vspackages3.json"))
+                    {
+                        vsrepo.Update(); // run update here first to avoid issues with "vsrepo path" 
+                    }
                 }
                 else
                 {
@@ -196,12 +200,7 @@ namespace VSRepoGUI
             try
             {
                 Plugins.All = LoadLocalVspackage();
-                //Check OnStart online for new definitions.
-                DateTime dt = File.GetLastWriteTime(vspackages_file);
-                if (dt < dt.AddDays(1))
-                {
-                    vsrepo.Update();
-                }
+                vsrepo.Update();
             }
             catch
             {

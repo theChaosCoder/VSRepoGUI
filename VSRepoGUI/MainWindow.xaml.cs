@@ -35,7 +35,7 @@ namespace VSRepoGUI
         public string consolestd { get; set; }
         public List<string> consolestdL = new List<string>();
 
-        public string version = "v0.9.6";
+        public string version = "v0.9.7";
         public string AppTitle { get; set; }
         public bool Win64 { get; set; }
         
@@ -815,6 +815,9 @@ namespace VSRepoGUI
                                     tb.Inlines.Add("   \t - " + dependency + "\n");
                                 }
                                 tb.Inlines.Add("\n");
+
+                                tb.Inlines.Add("   \t Architecture is " + file_dependencies.architecture + " \n");
+                                tb.Inlines.Add("   \t Minimum OS version is " + file_dependencies.minimum_windows_version + " (" + file_dependencies.minimum_windows_osname + ") \n\n");
                             }
                             else
                             {
@@ -833,7 +836,57 @@ namespace VSRepoGUI
                     }
 
                     DiagPrintHelper(plugins, "namespace", "\n\n🔥 Namespace already populated, therefore it failed to load: \n", tb, true);
-                    DiagPrintHelper(plugins, "others", "\n\n🔥 Error unknown: \n", tb, true);
+                    //DiagPrintHelper(plugins, "others", "\n\n🔥 Error unknown: \n", tb, true);
+                    if (plugins["others"].Count() > 0)
+                    {
+                        tb.Inlines.Add(new Run("\n\n🔥 Error unknown: \n") { FontSize = 14 });
+                        tb.Inlines.Add(new Run("------------------------------------------------------------\n") { Foreground = Brushes.SlateBlue });
+                        bool hint_listpedeps = false;
+                        foreach (var p in plugins["others"])
+                        {
+                            Diagnose.Depends file_dependencies = null;
+
+                            try
+                            {
+                                file_dependencies = await diag.GetDllDependencies(p);
+                            }
+                            catch
+                            {
+                                hint_listpedeps = true;
+                            }
+
+                            if (file_dependencies != null)
+                            {
+                                tb.Inlines.Add("   ");
+                                if (Path.IsPathRooted(p))
+                                    tb.Inlines.Add(new Run(Path.GetDirectoryName(p) + @"\") { Foreground = Brushes.Silver });
+                                tb.Inlines.Add(Path.GetFileName(p) + "\n");
+                                tb.Inlines.Add("   \t requires following dependencies:\n\n");
+
+                                foreach (var dependency in file_dependencies.Imports)
+                                {
+                                    tb.Inlines.Add("   \t - " + dependency + "\n");
+                                }
+                                tb.Inlines.Add("\n");
+
+                                tb.Inlines.Add("   \t Architecture is " + file_dependencies.architecture + " \n");
+                                tb.Inlines.Add("   \t Minimum OS version is " + file_dependencies.minimum_windows_version + " (" + file_dependencies.minimum_windows_osname + ") \n\n");
+                            }
+                            else
+                            {
+                                tb.Inlines.Add("   ");
+                                if (Path.IsPathRooted(p))
+                                    tb.Inlines.Add(new Run(Path.GetDirectoryName(p) + @"\") { Foreground = Brushes.Silver });
+                                tb.Inlines.Add(Path.GetFileName(p) + "\n");
+                            }
+                        }
+                        if (hint_listpedeps)
+                        {
+                            tb.Inlines.Add("\nInstall listpedeps.exe via  'choco install pedeps'");
+                            tb.Inlines.Add("\nor copy listpedeps.exe next to vsrepogui.exe for detailed information about missing dependencies.");
+                            tb.Inlines.Add("\nDownload here: https://github.com/brechtsanders/pedeps/releases\n\n");
+                        }
+                    }
 
                     var not_a_vsplugin_known = plugins["not_a_vsplugin"].Where(x => known_files.ContainsKey(x)).Select(x => x).ToList();
                     var not_a_vsplugin_unknown = plugins["not_a_vsplugin"].Where(x => !known_files.ContainsKey(x)).Select(x => x).ToList();

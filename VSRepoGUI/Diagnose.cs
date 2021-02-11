@@ -13,7 +13,19 @@ namespace VSRepoGUI
     public class Diagnose
     {
         public string python_bin = "python.exe";
-        
+
+        // https://docs.microsoft.com/en-us/windows/win32/sysinfo/operating-system-version
+        public Dictionary<string, string> os_versions = new Dictionary<string, string> 
+           {
+            {"5.0", "Windows 2000" },
+            {"5.1", "Windows XP" },
+            {"5.2", "Windows XP 64-Bit Edition or Windows Server 2003 (or R3)" },
+            {"6.0", "Windows Vista or Windows Server 2008" },
+            {"6.1", "Windows 7 or Windows Server 2008 R2" },
+            {"6.2", "Windows 8 or Windows Server 2012" },
+            {"6.3", "Windows 8.1 or Windows Server 2012 R2" },
+            {"10.0", "Windows 10 or Windows Server 2016/2019" },
+        };
 
         public Diagnose(string pythonbin)
         {
@@ -112,10 +124,11 @@ namespace VSRepoGUI
             var lines = input.Split(new char[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
   
             dep.file = input;
-            dep.architecture = Array.FindAll(lines, c => c.Contains("architecture:"))[0].Split(':')[1].Trim();
+            dep.architecture = ArchToSimpleArch( Array.FindAll(lines, c => c.Contains("architecture:"))[0].Split(':')[1].Trim() );
             dep.machine_name = Array.FindAll(lines, c => c.Contains("machine name:"))[0].Split(':')[1].Trim();
             dep.subsystem = Array.FindAll(lines, c => c.Contains("subsystem:"))[0].Split(':')[1].Trim();
             dep.minimum_windows_version = Array.FindAll(lines, c => c.Contains("minimum Windows version:"))[0].Split(':')[1].Trim();
+            dep.minimum_windows_osname = OsVersionToName(dep.minimum_windows_version);
 
             var split_import = input.Split(new string[] { "IMPORTS" }, StringSplitOptions.RemoveEmptyEntries)[1].Split(new string[] { "EXPORTS" }, StringSplitOptions.RemoveEmptyEntries)[0].Split(new string[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
             foreach(var import in split_import)
@@ -273,6 +286,28 @@ print(json.dumps(error))
             
         }
 
+        public string OsVersionToName(string version)
+        {
+            if (os_versions.ContainsKey(version))
+            {
+                return os_versions[version];
+            }
+            return "OS Name unknown";
+        }
+
+        public string ArchToSimpleArch(string arch)
+        {
+            if (arch == "x86")
+            {
+                return "32 Bit";
+            }
+            if (arch == "x86_64")
+            {
+                return "64 Bit";
+            }
+            return arch;
+        }
+
         public class Depends
         {
             public string file;
@@ -280,6 +315,7 @@ print(json.dumps(error))
             public string machine_name;
             public string subsystem;
             public string minimum_windows_version;
+            public string minimum_windows_osname;
             public List<string> Imports = new List<string>();
             public List<string> Exports = new List<string>();
             public bool IsVapourSynthPlugin = false;

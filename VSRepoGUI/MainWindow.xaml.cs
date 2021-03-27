@@ -296,8 +296,8 @@ namespace VSRepoGUI
         {
             if(plugins != null)
             {
-                string search = searchBox.Text;
-                if (search.Length > 0 && search != "Search")
+                string search = searchBox.Text.ToLower();
+                if (search.Length > 0 && search != "search")
                 {
                     plugins = Array.FindAll(plugins, c => c.Name.ToLower().Contains(search) || (c.Namespace?.ToLower().Contains(search) ?? c.Modulename.ToLower().Contains(search)));
                 }

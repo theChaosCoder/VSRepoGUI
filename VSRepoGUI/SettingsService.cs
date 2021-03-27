@@ -1,6 +1,5 @@
 ﻿using Jot;
 using System.Windows;
-using System.Windows.Forms;
 
 namespace VSRepoGUI
 {

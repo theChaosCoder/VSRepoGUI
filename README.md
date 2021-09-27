@@ -13,5 +13,4 @@ Paste it in the same folder as vsrepogui.exe or install with `choco install pede
 
 
 ![VSRepoGUI](https://i.imgur.com/OA37k7H.png)
-![VSRepoGUI-Diagnose](https://i.imgur.com/YfYVeUl.png)
-
+![VSRepoGUI_VMqQcz1UvA](https://user-images.githubusercontent.com/3579830/134942421-d20bd20b-b617-468c-8078-f7672dd2fdd9.png)

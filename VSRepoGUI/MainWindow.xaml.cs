@@ -66,7 +66,7 @@ namespace VSRepoGUI
                 set
                 {
                     UpdateAvailable = Array.FindAll(value, c => c.Status == VsApi.PluginStatus.UpdateAvailable);
-                    Installed =       Array.FindAll(value, c => c.Status == VsApi.PluginStatus.Installed);
+                    Installed =       Array.FindAll(value, c => c.Status == VsApi.PluginStatus.Installed || c.Status == VsApi.PluginStatus.UpdateAvailable);
                     NotInstalled =    Array.FindAll(value, c => c.Status == VsApi.PluginStatus.NotInstalled);
                     Unknown =         Array.FindAll(value, c => c.Status == VsApi.PluginStatus.InstalledUnknown);
                     //Full =            value;

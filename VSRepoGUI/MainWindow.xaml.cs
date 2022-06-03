@@ -657,7 +657,7 @@ namespace VSRepoGUI
 
                 var SystemInfo = new SystemInfo();
 
-                tb.Inlines.Add(@"/!\ Only Plugins and no Scripts are tested /!\");
+                tb.Inlines.Add(@"/!\ Only Plugins are tested, no Scripts /!\");
                 if (current_vs_installation_works)
                     tb.Inlines.Add("\n" + version);
                 else

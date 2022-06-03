@@ -40,9 +40,9 @@
         <Grid.Resources>
             <DataTemplate x:Key="DateTemplateLinks" x:Name="DateTemplateLinks">
                 <StackPanel Orientation="Vertical">
-                    <TextBlock FontSize="11" Visibility="{Binding Website, Converter={StaticResource VisText}}"><Hyperlink NavigateUri="{Binding Website, TargetNullValue=about:blank}" RequestNavigate="Hyperlink_open">Website</Hyperlink></TextBlock>
-                    <TextBlock FontSize="11" Visibility="{Binding Github, Converter={StaticResource VisText}}"><Hyperlink NavigateUri="{Binding Github, TargetNullValue=about:blank}" RequestNavigate="Hyperlink_open">Github</Hyperlink></TextBlock>
-                    <TextBlock FontSize="11" Visibility="{Binding Doom9, Converter={StaticResource VisText}}"><Hyperlink NavigateUri="{Binding Doom9, TargetNullValue=about:blank}" RequestNavigate="Hyperlink_open">Doom9</Hyperlink></TextBlock>
+                    <TextBlock FontSize="11" ToolTip="{ Binding Website }" Visibility="{Binding Website, Converter={StaticResource VisText}}"><Hyperlink NavigateUri="{Binding Website, TargetNullValue=about:blank}" RequestNavigate="Hyperlink_open">Website</Hyperlink></TextBlock>
+                    <TextBlock FontSize="11" ToolTip="{ Binding Github }" Visibility="{Binding Github, Converter={StaticResource VisText}}"><Hyperlink NavigateUri="{Binding Github, TargetNullValue=about:blank}" RequestNavigate="Hyperlink_open">Github</Hyperlink></TextBlock>
+                    <TextBlock FontSize="11" ToolTip="{ Binding Doom9 }" Visibility="{Binding Doom9, Converter={StaticResource VisText}}"><Hyperlink NavigateUri="{Binding Doom9, TargetNullValue=about:blank}" RequestNavigate="Hyperlink_open">Doom9</Hyperlink></TextBlock>
                 </StackPanel>
             </DataTemplate>
             <DataTemplate x:Key="DateTemplateNamespaceLink" x:Name="DateTemplateNamespaceLink">

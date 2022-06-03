@@ -35,7 +35,7 @@ namespace VSRepoGUI
         public string consolestd { get; set; }
         public List<string> consolestdL = new List<string>();
 
-        public string version = "v0.9.7";
+        public string version = "v0.9.8";
         public string AppTitle { get; set; }
         public bool Win64 { get; set; }
         
@@ -170,7 +170,7 @@ namespace VSRepoGUI
                 }
                 else
                 {
-                    MessageBox.Show("Found VS installation in " + vsregistry.GetCurrentRegPath() + " but no vsrepo.py file in " + vsrepo_file + ". Make sure you have at least version R45 of VapourSynth installed.");
+                    MessageBox.Show("Found VS installation in " + vsregistry.GetCurrentRegPath() + " but no vsrepo.py file in " + vsrepo_file + ". Make sure you have at least version R55 of VapourSynth installed.");
                     System.Environment.Exit(1);
                 }
                 AppIsWorking(true);

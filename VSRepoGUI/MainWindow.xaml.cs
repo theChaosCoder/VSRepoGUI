@@ -176,7 +176,16 @@ namespace VSRepoGUI
                 AppIsWorking(true);
                 vsrepo.SetArch(Environment.Is64BitOperatingSystem);
                 //Trigger GetPaths for 32/64 bit, they are cached in VsApi class anyway
-                _ = vsrepo.GetPaths(true).Definitions; _ = vsrepo.GetPaths(false).Definitions;
+                try
+                {
+                    _ = vsrepo.GetPaths(true).Definitions; _ = vsrepo.GetPaths(false).Definitions;
+                } 
+                catch 
+                {
+                    MessageBox.Show("GetPaths() failed. Could be a missing/broken vspackages3.json.");
+                    System.Environment.Exit(1);
+                }
+                
                 vspackages_file = vsrepo.GetPaths(Environment.Is64BitOperatingSystem).Definitions;
                 //Win64 = Environment.Is64BitOperatingSystem;
                 Console.WriteLine("vspackages_file: " + vsrepo_file);
